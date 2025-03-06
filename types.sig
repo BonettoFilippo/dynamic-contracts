@@ -1,0 +1,15 @@
+(* the type language used in the translator
+   a function for pretty printing *)
+
+signature TYPES = 
+sig
+    datatype typ = 
+          TInt
+        | TBool
+        | TDyn
+        | TFun of typ * typ
+
+    (* a function that converts type into human readable strings *)
+    val string_of_typ : typ -> string
+    
+end;
