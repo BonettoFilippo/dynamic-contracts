@@ -1,48 +1,78 @@
-open abstract_syntax
-open types
 open eval
+open expressions
+open types
+(* A simple function to convert values to strings for testing *)
+fun string_of_value (VInt n) = Int.toString n
+  | string_of_value (VBool b) = Bool.toString b
+  | string_of_value (VClosure (_, _, _, _)) = "<closure>"
+  | string_of_value (VDynamic v) = "Dynamic(" ^ string_of_value v ^ ")"
+  | string_of_value (VError msg) = "Error(" ^ msg ^ ")";
 
-fun string_of_exp (EInt n) = Int.toString n
-  | string_of_exp (EBool b) = Bool.toString b
-  | string_of_exp (EVar v) = v
-  | string_of_exp (ELam (x, t, body)) = 
-        "(fn " ^ x ^ " : " ^ types.string_of_typ t ^ " => " ^ string_of_exp body ^")"
-  | string_of_exp (EApp (e1, e2)) =
-        "(" ^ string_of_exp e1 ^ " " ^ string_of_exp e2 ^ ")"
-  | string_of_exp (EIf (e1, e2, e3)) =
-        "(if " ^ string_of_exp e1 ^ " then " ^ string_of_exp e2 ^ " else " ^ string_of_exp e3 ^ ")"
-  | string_of_exp (ECoerce (e, t)) =
-        "coerce(" ^ string_of_exp e ^ ", " ^ types.string_of_typ t ^ ")"
+(* Test helper that prints a description and then the evaluated value *)
+fun test (desc: string) (e: exp) =
+	let
+		val v = run e
+	in
+		print (desc ^ ": " ^ string_of_value v ^ "\n")
+	end
 
+(* Now we define some test expressions *)
+fun test_eval () =
+    let
+		(* Test integer literal *)
+		val _ = test "Test int literal" (EInt 42)
+		
+		(* Test boolean literal *)
+		val _ = test "Test boolean literal" (EBool true)
+		
+		(* Test variable lookup: we'll use an environment in the evaluator, but run uses [].
+				So, to test Var we can extend the environment manually. *)
+		val _ =
+			let val v = eval.eval [("x", VInt 10)] (EVar "x") handle
+				UnboundVariable x => VError ("Test variable lookup: unbound variable " ^ x ^ "\n")
+       		in
+				case v of
+					VError msg => print msg
+				  | _ => print ("Test variable lookup: " ^ string_of_value v ^ "\n")
+			end
+      
+		(* Test lambda (closure) creation *)
+		val _ = test "Test lambda (closure)" (ELam ("x", TInt, EVar "x"))
+		
+		(* Test function application:
+				We'll create a lambda that adds 1 to its argument and apply it to an integer *)
+		val addOne = ELam ("x", TInt, (* here we assume a primitive for addition; if not, we can simulate it by returning a constant *) 
+                              EInt  (1))  (* For simplicity, we return 1 as a stub; you can adjust this later *)
+      	val _ = test "Test application (stub addOne)" (EApp (addOne, EInt 100))
+      
+		(* Test if expression: if true then 1 else 0 *)
+		val _ = test "Test if (true)" (EIf (EBool true, EInt 1, EInt 0))
+		val _ = test "Test if (false)" (EIf (EBool false, EInt 1, EInt 0))
+		
+		(* Test error: applying a non-function *)
+		val _ =
+			let val v = (run (EApp (EInt 3, EInt 4))) handle
+				DynamicTypeError x => VError ("Test error (apply non-function) caught: " ^ x ^ "\n")
+       		in
+				case v of
+					VError msg => print msg
+				  | _ => print ("Test error (apply non-function) returned: " ^ string_of_value v ^ "\n")
+			end
 
-(* some test expressions *)
-val test1 = abstract_syntax.EInt 42
-val test2 = abstract_syntax.EBool true
-val test3 = abstract_syntax.ELam ("x", TInt, EVar "x")
-val test4 = abstract_syntax.EApp (test3, EVar "y")
-val test5 = abstract_syntax.EIf (EBool true, EInt 1, EInt 0)
+		(* Test error: unbound variable *)
+		val _ =
+			let val v = run (EVar "z") handle
+				UnboundVariable x => VError ("Test error (unbound variable) caught: " ^ x ^ "\n")
+       		in
+				case v of
+					VError msg => print msg
+				  | _ => print ("Test error (unbound variable) returned: " ^ string_of_value v ^ "\n")
+			end
 
-val initial_env : eval.env = Env [("y", VInt 99)]
+      	(* Test cast (stub implementation) *)
+      	val _ = test "Test cast (stub)" (ECast (EInt 7, TInt))
+    in
+  		()
+    end
 
-(* evaluating tests *)
-val eval1 = eval (Env [], test1)
-val eval2 = eval (Env [], test2)
-val eval3 = eval (Env [], test3)
-val eval4 = eval (initial_env, test4)
-val eval5 = eval (Env [], test5)
-
-(* Prints test cases and their results *)
-val () = print ("Test 1: " ^ string_of_exp test1 ^ "\n")
-val () = print ("Evaluates to: " ^ eval.string_of_value eval1 ^ "\n\n")
-
-val () = print ("Test 2: " ^ string_of_exp test2 ^ "\n")
-val () = print ("Evaluates to: " ^ eval.string_of_value eval2 ^ "\n\n")
-
-val () = print ("Test 3: " ^ string_of_exp test3 ^ "\n")
-val () = print ("Evaluates to: " ^ eval.string_of_value eval3 ^ "\n\n")
-
-val () = print ("Test 4: " ^ string_of_exp test4 ^ "\n")
-val () = print ("Evaluates to: " ^ eval.string_of_value eval4 ^ "\n\n")
-
-val () = print ("Test 5: " ^ string_of_exp test5 ^ "\n")
-val () = print ("Evaluates to: " ^ eval.string_of_value eval5 ^ "\n")
+val _ = test_eval ()

@@ -1,6 +1,3 @@
-(* the type language used in the translator
-   a function for pretty printing *)
-
 signature TYPES = 
 sig
     datatype typ = 
