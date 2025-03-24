@@ -1,6 +1,6 @@
 (* interpreter and evaluatior for the syntax *)
 
-structure eval = struct
+structure eval : EVAL = struct
     
     (* exceptions for errors *)
     exception UnboundVariable of string
@@ -14,8 +14,18 @@ structure eval = struct
       | VClosure of string * types.typ * expressions.exp * ((string * value) list)
       | VDynamic of value
       | VError of string
+      | VCouple of value * value
 
     type env = (string * value) list
+
+    fun value_to_type (v: value) : types.typ =
+        case v of
+            VInt _ => types.TInt
+          | VBool _ => types.TBool
+          | VClosure (_, t, _, _) => t
+          | VDynamic v => types.TDyn
+          | VError _ => raise (DynamicTypeError "Error value has no type")
+          | VCouple (v1, v2) => types.TCouple (value_to_type v1, value_to_type v2)
 
     fun eval (env: env) (e: expressions.exp) : value =
         case e of 
@@ -53,6 +63,8 @@ structure eval = struct
                 end
           | expressions.ECast (e_inner, t1) =>
                 eval env e_inner (* TODO a stub for coercions *)
+          | expressions.ECouple (e1, e2) =>
+                VCouple (eval env e1, eval env e2)
 
     fun run e = eval [] e
 end;
