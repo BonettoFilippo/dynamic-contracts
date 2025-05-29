@@ -8,4 +8,9 @@ Group is
     expressions.sml
     eval.sig
     eval.sml
+    constraintsyntax.sml
 
+(*
+    to execute this code, write in terminal:
+    CM.make "build.cm"
+*)
