@@ -1,4 +1,4 @@
-structure constraintsyntax = struct
+structure constraintsyntax : CONSTRAINTSYNTAX = struct
     structure U = URef
 
     type tvar = types.typ option U.uref
@@ -28,9 +28,11 @@ structure constraintsyntax = struct
                             val cvar = fresh_tvar ()
 
                             val _ = unifyEq (dvar, U.uref (SOME a1))
-                            val _ = unifyEq (cvar, U.uref (SOME b1))
                             val _ = unifyEq (dvar, U.uref (SOME a2))
+                            val _ = unifyEq (dvar, U.uref (SOME a1))
+                            val _ = unifyEq (cvar, U.uref (SOME b1))
                             val _ = unifyEq (cvar, U.uref (SOME b2))
+                            val _ = unifyEq (cvar, U.uref (SOME b1))
                         in
                             SOME (types.TFun (Option.valOf (U.!!dvar), Option.valOf (U.!!cvar)))
                         end
@@ -100,8 +102,20 @@ structure constraintsyntax = struct
                     val (f', inner_f, outer_f) = infer (e1, tenv)
                     val (arg', inner_arg, outer_arg) = infer (e2, tenv)
 
-                    val _ = unifyEq (inner_f, U.uref (SOME (types.TFun (getTyp outer_arg, getTyp a))))
-                    val _ = unifyEq (outer_f, U.uref (SOME (types.TFun (getTyp outer_arg, getTyp b))))
+                    val _ = (case (getTyp inner_f) of 
+                        types.TFun (_, ret_typ) => 
+                            unifyEq (U.uref (SOME ret_typ), a)
+                      | _ => 
+                            raise eval.DynamicTypeError ("Expected function type in application"))
+
+                    val _ = (case (getTyp outer_f) of 
+                        types.TFun (_, ret_typ) => 
+                            unifyEq (U.uref (SOME ret_typ), b)
+                      | _ => 
+                            raise eval.DynamicTypeError ("Expected function type in application"))
+
+                    val _ = unifyEq (U.uref (SOME (types.TFun (getTyp outer_arg, getTyp a))), inner_f)
+                    val _ = unifyEq (U.uref (SOME (types.TFun (getTyp outer_arg, getTyp b))), outer_f)
                 in 
                     (AApp (f', arg', a, b), a, b) end
           | expressions.ELet (x, e1, e2) =>
