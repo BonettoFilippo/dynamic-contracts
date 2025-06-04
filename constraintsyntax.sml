@@ -188,4 +188,62 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
          let 
             val (tree, _, _) = infer (e, [])
          in (tree, List.rev (!worklist)) end)
+
+    fun string_of_tvar (v: tvar) : string =
+        let
+            val ty_opt = U.!! v
+            val ty = case ty_opt of
+                SOME t => t
+              | NONE => types.TDyn
+        in
+            types.string_of_typ ty
+        end
+    
+    fun prettyp (e: ann_exp) : string =
+        case e of
+            AInt (n, t1, t2) => Int.toString n ^ " : " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2
+          | ABool (b, t1, t2) => Bool.toString b ^ " : " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2
+          | AVar (v, t1, t2) => v ^ " : " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2
+          | ALam (v, t, body, t1, t2) => 
+                let
+                    val param = types.string_of_typ t
+                    val body_str = prettyp body
+                in
+                    "(λ" ^ v ^ " : " ^ param ^ ". " ^ body_str ^ ")  : " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2
+                end
+          | AApp (e1, e2, t1, t2) =>
+                let
+                    val e1_str = prettyp e1
+                    val e2_str = prettyp e2
+                in
+                    "(" ^ e1_str ^ " " ^ e2_str ^ ") : " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2
+                end
+          | ALet (x, e1, e2, t1, t2) =>
+                let
+                    val e1_str = prettyp e1
+                    val e2_str = prettyp e2
+                in
+                    "(let " ^ x ^ " = " ^ e1_str ^ " in " ^ e2_str ^ ") : " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2
+                end
+          | AIf (cond, e_then, e_else, t1, t2) =>
+                let
+                    val cond_str = prettyp cond
+                    val then_str = prettyp e_then
+                    val else_str = prettyp e_else
+                in
+                    "(if " ^ cond_str ^ " then " ^ then_str ^ " else " ^ else_str ^ ") : " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2
+                end
+          | ACast (e, t, t1, t2) =>
+                let
+                    val e_str = prettyp e
+                in
+                    "(cast " ^ e_str ^ " as " ^ types.string_of_typ t ^ ") : " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2
+                end
+          | ACouple (e1, e2, t1, t2) =>
+                let
+                    val e1_str = prettyp e1
+                    val e2_str = prettyp e2
+                in
+                    "(couple " ^ e1_str ^ ", " ^ e2_str ^ ") : " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2
+                end
 end; 

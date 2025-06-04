@@ -37,4 +37,7 @@ sig
   (* Run inference on an expression, returning the annotated tree
      and the list of accumulated constraints *)
   val generate : expressions.exp -> ann_exp * constraint list
+
+  val string_of_tvar : tvar -> string 
+  val prettyp : ann_exp -> string 
 end

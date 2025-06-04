@@ -222,3 +222,65 @@ val _ =
                 assertTrue ("Constraints should not be empty for ACouple", length cs = 1))
           | _ => raise Fail "Expected ACouple expression"
     end
+
+val _ = 
+    let
+        val (exp, cs) = CS.generate (expressions.EInt 42)
+        val s = CS.prettyp exp
+    in
+        print  ("Program 1 := " ^ s ^ "\n");
+        print  ("Coercions: " ^ Int.toString (List.length cs) ^ "\n")
+    end
+
+
+val _ = 
+    let
+        val (exp, cs) = CS.generate (expressions.EIf(
+                        expressions.EBool true,
+                        expressions.EInt 1,
+                        expressions.EInt 0))
+    in
+        print  ("Program 2 := " ^ CS.prettyp exp ^ "\n");
+        print  ("Coercions: " ^ Int.toString (List.length cs) ^ "\n")
+    end
+
+val _ =
+    let
+        val (exp, cs) = CS.generate (expressions.ELet("x",
+                        expressions.EInt 5,
+                        expressions.EVar "x"))
+    in
+        print  ("Program 3 := " ^ CS.prettyp exp ^ "\n");
+        print  ("Coercions: " ^ Int.toString (List.length cs) ^ "\n")
+    end
+
+val _ =
+    let
+        val (exp, cs) = CS.generate (expressions.ELam("x", types.TInt,
+                        expressions.EVar "x"))
+    in
+        print  ("Program 4 := " ^ CS.prettyp exp ^ "\n");
+        print  ("Coercions: " ^ Int.toString (List.length cs) ^ "\n")
+    end
+
+val _ =
+    let
+        val (exp, cs) = CS.generate (expressions.ECouple(expressions.EInt 3, expressions.EBool false))
+    in
+        print  ("Program 5 := " ^ CS.prettyp exp ^ "\n");
+        print  ("Coercions: " ^ Int.toString (List.length cs) ^ "\n")
+    end
+    
+val _ =
+    let
+        val (exp, cs) = CS.generate (expressions.ELet("f",
+                        (* binding = λx:Int. ⟨x, x⟩ *)
+                        expressions.ELam("x", types.TInt,
+                        expressions.ECouple(expressions.EVar "x", expressions.EVar "x")
+                        ),
+                        (* body = f 2 *)
+                        expressions.EApp(expressions.EVar "f", expressions.EInt 2)))
+    in
+        print  ("Program 6 := " ^ CS.prettyp exp ^ "\n");
+        print  ("Coercions: " ^ Int.toString (List.length cs) ^ "\n")
+    end
