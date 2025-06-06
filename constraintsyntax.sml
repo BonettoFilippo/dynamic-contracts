@@ -201,29 +201,29 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
     
     fun prettyp (e: ann_exp) : string =
         case e of
-            AInt (n, t1, t2) => Int.toString n ^ " : " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2
-          | ABool (b, t1, t2) => Bool.toString b ^ " : " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2
-          | AVar (v, t1, t2) => v ^ " : " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2
+            AInt (n, t1, t2) => Int.toString n ^ " : " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2 ^ "\n"
+          | ABool (b, t1, t2) => Bool.toString b ^ " : " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2  ^ "\n"
+          | AVar (v, t1, t2) => v ^ " : " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2  ^ "\n"
           | ALam (v, t, body, t1, t2) => 
                 let
                     val param = types.string_of_typ t
                     val body_str = prettyp body
                 in
-                    "(λ" ^ v ^ " : " ^ param ^ ". " ^ body_str ^ ")  : " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2
+                    "(λ" ^ v ^ " : " ^ param ^ ". " ^ body_str ^ ")  : \n " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2  ^ "\n"
                 end
           | AApp (e1, e2, t1, t2) =>
                 let
                     val e1_str = prettyp e1
                     val e2_str = prettyp e2
                 in
-                    "(" ^ e1_str ^ " " ^ e2_str ^ ") : " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2
+                    "(" ^ e1_str ^ " " ^ e2_str ^ ") : \n " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2  ^ "\n"
                 end
           | ALet (x, e1, e2, t1, t2) =>
                 let
                     val e1_str = prettyp e1
                     val e2_str = prettyp e2
                 in
-                    "(let " ^ x ^ " = " ^ e1_str ^ " in " ^ e2_str ^ ") : " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2
+                    "(let " ^ x ^ " = " ^ e1_str ^ " in " ^ e2_str ^ ") : \n " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2  ^ "\n"
                 end
           | AIf (cond, e_then, e_else, t1, t2) =>
                 let
@@ -231,19 +231,19 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                     val then_str = prettyp e_then
                     val else_str = prettyp e_else
                 in
-                    "(if " ^ cond_str ^ " then " ^ then_str ^ " else " ^ else_str ^ ") : " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2
+                    "(if " ^ cond_str ^ " then " ^ then_str ^ " else " ^ else_str ^ ") : \n " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2  ^ "\n"
                 end
           | ACast (e, t, t1, t2) =>
                 let
                     val e_str = prettyp e
                 in
-                    "(cast " ^ e_str ^ " as " ^ types.string_of_typ t ^ ") : " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2
+                    "(cast " ^ e_str ^ " as " ^ types.string_of_typ t ^ ") : \n " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2  ^ "\n"
                 end
           | ACouple (e1, e2, t1, t2) =>
                 let
                     val e1_str = prettyp e1
                     val e2_str = prettyp e2
                 in
-                    "(couple " ^ e1_str ^ ", " ^ e2_str ^ ") : " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2
+                    "(couple " ^ e1_str ^ ", " ^ e2_str ^ ") : \n " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2  ^ "\n"
                 end
 end; 
