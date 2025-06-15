@@ -11,7 +11,14 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
         U.uref NONE
 
     fun add_coerce (p, q) = 
-        worklist := Coerce (p, q) :: !worklist
+        case q of
+            NONE => 
+                let 
+                    val _ = unifyEq (p, q)
+                in 
+                    worklist := Coerce (p, q) :: !worklist
+                end
+          | _ => worklist := Coerce (p, q) :: !worklist
 
     fun getTyp (v: tvar) : types.typ =
         case U.!! v of
@@ -84,38 +91,32 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                 let 
                     val a = fresh_tvar ()
                     val b = fresh_tvar ()
-                    val _ = add_coerce (a, b)
 
                     val tenv' = (v, U.uref (SOME t)) :: tenv
                     val (body', inner_body, outer_body) = infer (body, tenv')
 
-                    val _ = unifyEq (a, U.uref (SOME (types.TFun (t, getTyp inner_body))))
-                    val _ = unifyEq (b, U.uref (SOME (types.TFun (t, getTyp outer_body))))
+                    val _ = unifyEq (a, U.uref (SOME (types.TFun (t, getTyp outer_body))))
+
+                    val _ = add_coerce (a, b)
                 in 
                     (ALam (v, t, body', a, b), a, b) end
           | expressions.EApp (e1, e2) =>
                 let 
                     val a = fresh_tvar ()
                     val b = fresh_tvar ()
-                    val _ = add_coerce (a, b)
 
                     val (f', inner_f, outer_f) = infer (e1, tenv)
                     val (arg', inner_arg, outer_arg) = infer (e2, tenv)
 
-                    val _ = (case (getTyp inner_f) of 
+                    val _ = (case (getTyp outer_f) of 
                         types.TFun (_, ret_typ) => 
                             unifyEq (U.uref (SOME ret_typ), a)
                       | _ => 
                             raise eval.DynamicTypeError ("Expected function type in application"))
 
-                    val _ = (case (getTyp outer_f) of 
-                        types.TFun (_, ret_typ) => 
-                            unifyEq (U.uref (SOME ret_typ), b)
-                      | _ => 
-                            raise eval.DynamicTypeError ("Expected function type in application"))
+                    val _ = unifyEq (U.uref (SOME (types.TFun (getTyp outer_arg, getTyp a))), outer_f)
 
-                    val _ = unifyEq (U.uref (SOME (types.TFun (getTyp outer_arg, getTyp a))), inner_f)
-                    val _ = unifyEq (U.uref (SOME (types.TFun (getTyp outer_arg, getTyp b))), outer_f)
+                    val _ = add_coerce (a, b)
                 in 
                     (AApp (f', arg', a, b), a, b) end
           | expressions.ELet (x, e1, e2) =>
@@ -123,17 +124,15 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                     val a = fresh_tvar ()
                     val b = fresh_tvar ()
 
-                    val _ = add_coerce (a, b)
-
                     val (e1', inner_e1, outer_e1) = infer (e1, tenv)
                     val g = fresh_tvar ()
                     val _ = unifyEq (outer_e1, g)
                     val tenv' = (x, g) :: tenv
 
                     val (e2', inner_e2, outer_e2) = infer (e2, tenv')
-                    val _ = unifyEq (a, inner_e2)
-                    val _ = unifyEq (b, outer_e2)
+                    val _ = unifyEq (a, outer_e2)
 
+                    val _ = add_coerce (a, b)
                 in 
                     (ALet (x, e1', e2', a, b), a, b) end
           | expressions.EIf (cond, e_then, e_else) =>
@@ -141,18 +140,16 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                     val a = fresh_tvar ()
                     val b = fresh_tvar ()
 
-                    val _ = add_coerce (a, b)
-
                     val (cond', inner_cond, outer_cond) = infer (cond, tenv)
                     val _ = unifyEq (outer_cond, U.uref (SOME types.TBool))
 
                     val (e_then', inner_then, outer_then) = infer (e_then, tenv)
                     val (e_else', inner_else, outer_else) = infer (e_else, tenv)
 
-                    val _ = unifyEq (inner_then, a)
-                    val _ = unifyEq (outer_then, b)
-                    val _ = unifyEq (inner_else, a)
-                    val _ = unifyEq (outer_else, b)
+                    val _ = unifyEq (outer_then, a)
+                    val _ = unifyEq (outer_else, a)
+
+                    val _ = add_coerce (a, b)
                 in
                     (AIf (cond', e_then', e_else', a, b), a, b) end
           | expressions.ECast (e, t) =>
@@ -160,12 +157,11 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                     val a = fresh_tvar ()
                     val b = fresh_tvar ()
 
-                    val _ = add_coerce (a, b)
-
                     val (e', inner_e, outer_e) = infer (e, tenv)
-                    val _ = unifyEq (inner_e, a)
-                    val _ = unifyEq (outer_e, b)
-                    val _ = unifyEq (b, U.uref (SOME t))
+                    val _ = unifyEq (outer_e, a)
+                    val _ = unifyEq (a, U.uref (SOME t))
+
+                    val _ = add_coerce (a, b)
                 in
                     (ACast (e', t, a, b), a, b) end
           | expressions.ECouple (e1, e2) =>
@@ -173,13 +169,12 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                     val a = fresh_tvar ()
                     val b = fresh_tvar ()
 
-                    val _ = add_coerce (a, b)
-
                     val (e1', inner_e1, outer_e1) = infer (e1, tenv)
                     val (e2', inner_e2, outer_e2) = infer (e2, tenv)
 
-                    val _ = unifyEq (a, U.uref (SOME (types.TCouple (getTyp inner_e1, getTyp inner_e2))))
-                    val _ = unifyEq (b, U.uref (SOME (types.TCouple (getTyp outer_e1, getTyp outer_e2))))                    
+                    val _ = unifyEq (a, U.uref (SOME (types.TCouple (getTyp outer_e1, getTyp outer_e2))))      
+
+                    val _ = add_coerce (a, b)
                 in
                     (ACouple (e1', e2', a, b), a, b) end
 
