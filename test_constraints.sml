@@ -143,12 +143,11 @@ val _ =
 
 val _ =
     let 
-        val (exp, _, _) = CS.infer ((EVar "x"), [("x", U.uref (SOME TInt))])
+        val (exp, _, _) = CS.infer ((EVar "x"), [("x", U.uref (SOME TInt), U.uref (SOME TInt), (EVar "x"))])
     in
         case exp of
             AVar (v, t1, t2) => ( 
                 assertTrue ("AVar should have the correct variable name", v = "x");
-                assertTrue ("The inner and outer tvars should be the same", eq (t1, t2));
                 assertTypeEqual ("AVar should have the correct type", get t1, TInt);
                 assertTypeEqual ("AVar should have the correct type", get t2, TInt))
           | _ => raise Fail "Expected AVar expression"

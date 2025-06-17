@@ -8,7 +8,7 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
     type tvar = types.typ option U.uref
 
     (* the enviroment that saves the mapping between variable names and their reference (and so their types) *)
-    type tenv = (string * tvar) list
+    type tenv = (string * tvar * tvar * expressions.exp) list
 
     (* a type to save coercions. these coercions are from an inner to an outer type *)
     datatype constraint = Coerce of tvar * tvar
@@ -118,16 +118,16 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                 let val t = U.uref (SOME types.TBool)
                 in (ABool (b, t, t), t, t) end
           | expressions.EVar v => 
-                (case List.find (fn (x, _) => x = v) tenv of
-                    SOME (_, t) => 
-                        (AVar (v, t, t), t, t)
+                (case List.find (fn (x, _, _, _) => x = v) tenv of
+                    SOME (_, t1, t2, _) => 
+                        (AVar (v, t1, t2), t1, t2)
                   | NONE => raise (eval.UnboundVariable "Unbound variable"))
           | expressions.ELam (v, t, body) =>
                 let 
                     val a = fresh_tvar ()
                     val b = fresh_tvar ()
 
-                    val tenv' = (v, U.uref (SOME t)) :: tenv
+                    val tenv' = (v, U.uref (SOME t), U.uref (SOME t), expressions.ELam (v, t, body)) :: tenv
                     val (body', inner_body, outer_body) = infer (body, tenv')
 
                     val _ = unifyEq (a, U.uref (SOME (types.TFun (t, getTyp outer_body))))
@@ -143,11 +143,54 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                     val (f', inner_f, outer_f) = infer (e1, tenv)
                     val (arg', inner_arg, outer_arg) = infer (e2, tenv)
 
-                    val _ = (case (getTyp outer_f) of 
-                        types.TFun (_, ret_typ) => 
-                            unifyEq (U.uref (SOME ret_typ), a)
-                      | _ => 
-                            raise eval.DynamicTypeError ("Expected function type in application"))
+                    val _ = (case e1 of
+                        expressions.ELam (x, t, body) => 
+                            let 
+                                val (f'', inner_f'', outer_f'') = infer (expressions.ELam (x, getTyp outer_arg, body), tenv)
+                                val _ = (worklist := (   case !worklist of
+                                                    [] => []
+                                                  | _::rest => rest))
+                            in
+                                case (getTyp outer_f'') of 
+                                    types.TFun (_, ret_typ) => 
+                                        unifyEq (U.uref (SOME ret_typ), a)
+                                  | _ => 
+                                        raise eval.DynamicTypeError ("Expected function type in application")
+                            end
+                      | expressions.EVar v => 
+                            (case List.find (fn (x, _, _, _) => x = v) tenv of
+                                SOME (_, _, _, evar) => (case evar of
+                                    expressions.ELam (x, t, body) => 
+                                        let 
+                                            val (f'', inner_f'', outer_f'') = infer (expressions.ELam (x, getTyp outer_arg, body), tenv)
+                                            val _ = (worklist := (   case !worklist of
+                                                                [] => []
+                                                            | _::rest => rest))
+                                        in
+                                            case (getTyp outer_f'') of 
+                                                types.TFun (_, ret_typ) => 
+                                                    unifyEq (U.uref (SOME ret_typ), a)
+                                            | _ => 
+                                                    raise eval.DynamicTypeError ("Expected function type in application")
+                                        end
+                                  | expressions.ELet (f, e1', e2') => (case e1' of
+                                        expressions.ELam (x, t, body) => 
+                                            let 
+                                                val (f'', inner_f'', outer_f'') = infer (expressions.ELam (x, getTyp outer_arg, body), tenv)
+                                                val _ = (worklist := (   case !worklist of
+                                                                    [] => []
+                                                                | _::rest => rest))
+                                            in
+                                                case (getTyp outer_f'') of 
+                                                    types.TFun (_, ret_typ) => 
+                                                        unifyEq (U.uref (SOME ret_typ), a)
+                                                | _ => 
+                                                        raise eval.DynamicTypeError ("Expected function type in application")
+                                            end
+                                      | _ => raise eval.DynamicTypeError ("Expected function type in application"))
+                                  | _ => raise eval.DynamicTypeError ("Expected function type in application"))
+                              | NONE => raise (eval.UnboundVariable "Unbound variable"))
+                      | _ => raise eval.DynamicTypeError ("Expected function type in application"))
 
                     val _ = unifyEq (U.uref (SOME (types.TFun (getTyp outer_arg, getTyp a))), outer_f)
 
@@ -161,8 +204,10 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
 
                     val (e1', inner_e1, outer_e1) = infer (e1, tenv)
                     val g = fresh_tvar ()
+                    val g' = fresh_tvar ()
                     val _ = unifyEq (outer_e1, g)
-                    val tenv' = (x, g) :: tenv
+                    val _ = unifyEq (outer_e1, g')
+                    val tenv' = (x, g, g', expressions.ELet (x, e1, e2)) :: tenv
 
                     val (e2', inner_e2, outer_e2) = infer (e2, tenv')
                     val _ = unifyEq (a, outer_e2)

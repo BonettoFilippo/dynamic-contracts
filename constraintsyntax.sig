@@ -5,7 +5,7 @@ sig
   (* Type of type‐variable references *)
   type tvar = types.typ option U.uref
   (* Type environment mapping identifiers to type‐variable refs *)
-  type tenv = (string * tvar) list
+  type tenv = (string * tvar * tvar * expressions.exp) list
 
   (* Constraints collected during inference *)
   datatype constraint = Coerce of tvar * tvar
