@@ -279,8 +279,10 @@ val _ =
                         expressions.ECouple(expressions.EVar "x", expressions.EVar "x")
                         ),
                         (* body = f 2 *)
-                        expressions.EApp(expressions.EVar "f", expressions.EInt 2)))
+                        expressions.EApp(expressions.EVar "f", expressions.EBool true)))
+        val printedwl = CS.prettyp_worklist ()
     in
         print  ("Program 6 := " ^ CS.prettyp exp ^ "\n");
-        print  ("Coercions: " ^ Int.toString (List.length cs) ^ "\n")
+        print  ("Coercions: " ^ Int.toString (List.length cs) ^ "\n");
+        print  ("Worklist: " ^ printedwl ^ "\n")
     end

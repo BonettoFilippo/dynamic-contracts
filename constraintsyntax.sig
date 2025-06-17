@@ -40,4 +40,5 @@ sig
 
   val string_of_tvar : tvar -> string 
   val prettyp : ann_exp -> string 
+  val prettyp_worklist : unit -> string
 end
