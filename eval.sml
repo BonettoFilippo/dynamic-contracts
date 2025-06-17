@@ -1,13 +1,12 @@
-(* interpreter and evaluatior for the syntax *)
+(* interpreter and evaluator for the syntax *)
 
 structure eval : EVAL = struct
     
     (* exceptions for errors *)
     exception UnboundVariable of string
     exception DynamicTypeError of string
-
-    (* the environment is a list of pairs of strings and values *)
-
++   
+    (* the possible values follow the same types shown in the types module. it also incluedes the error value to express exeptions*)
     datatype value =
         VInt of int
       | VBool of bool
@@ -16,8 +15,10 @@ structure eval : EVAL = struct
       | VError of string
       | VCouple of value * value
 
+    (* the environment is a list of pairs of strings and values *)
     type env = (string * value) list
 
+    (* convert a value to its type, used for type checking and coercions *)
     fun value_to_type (v: value) : types.typ =
         case v of
             VInt _ => types.TInt
@@ -27,6 +28,8 @@ structure eval : EVAL = struct
           | VError _ => raise (DynamicTypeError "Error value has no type")
           | VCouple (v1, v2) => types.TCouple (value_to_type v1, value_to_type v2)
 
+    (* the evaluator takes an environment and an expression, and returns a value *)
+    (* recurses the syntax tree up to the leaves to solve inner nodes*)
     fun eval (env: env) (e: expressions.exp) : value =
         case e of 
             expressions.EVar x => 
@@ -66,5 +69,6 @@ structure eval : EVAL = struct
           | expressions.ECouple (e1, e2) =>
                 VCouple (eval env e1, eval env e2)
 
+    (* an alias to run the evaluator *)
     fun run e = eval [] e
 end;

@@ -1,8 +1,8 @@
 (* the abstract syntax of the source langauge *)
-(* contains definitions for types and expressions *)
+(* contains definitions for expressions *)
 structure expressions : EXPRESSIONS = struct 
 
-    (* the end keyword is important to allow recursive data types which will be important with refinement types *)
+    (* the possible expressions are type literals, variables, lambdas, applications, let, if and cast expressions *)
     datatype exp = 
         EInt of int
       | EBool of bool
@@ -13,6 +13,8 @@ structure expressions : EXPRESSIONS = struct
       | EIf of exp * exp * exp
       | ECast of exp * types.typ
       | ECouple of exp * exp
+
+    (* a function that converts expressions into human readable strings *)
     fun string_of_exp (EInt n) = Int.toString n
       | string_of_exp (EBool b) = Bool.toString b
       | string_of_exp (EVar x) = x 

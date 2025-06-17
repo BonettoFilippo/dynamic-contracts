@@ -1,5 +1,6 @@
 signature TYPES = 
 sig
+    (* a type is either an int, a bool, a dynamic type, a function type, or a pair type *)
     datatype typ = 
         TInt
       | TBool

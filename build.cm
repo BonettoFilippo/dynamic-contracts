@@ -13,5 +13,8 @@ Group is
 
 (*
     to execute this code, write in terminal:
-    CM.make "build.cm"
+    CM.make "build.cm";
+
+    to then execute some of the test files run in the terminal:
+    use "<testfile>.sml";
 *)

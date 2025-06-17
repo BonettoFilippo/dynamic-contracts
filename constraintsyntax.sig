@@ -38,7 +38,10 @@ sig
      and the list of accumulated constraints *)
   val generate : expressions.exp -> ann_exp * constraint list
 
+  (* a function to convert a tvar to a string representation *)
   val string_of_tvar : tvar -> string 
+  (* pretty preting function for annotations *)
   val prettyp : ann_exp -> string 
+  (* pretty preting function for the worklist *)
   val prettyp_worklist : unit -> string
 end

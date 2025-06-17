@@ -1,20 +1,40 @@
 structure constraintsyntax : CONSTRAINTSYNTAX = struct
+    (* imports the uref library with an alias *)
     structure U = URef
 
+    (* tvars are references to types. each element in the syntax tree has its own reference *)
+    (* these references will be merged and combined as the program continues *)
+    (* the option part is to identify refernces that are yet to be initialized from all the others *)
     type tvar = types.typ option U.uref
+
+    (* the enviroment that saves the mapping between variable names and their reference (and so their types) *)
     type tenv = (string * tvar) list
 
+    (* a type to save coercions. these coercions are from an inner to an outer type *)
     datatype constraint = Coerce of tvar * tvar
+
+    (* the worklist is a reference that saves all the coercions found in the program *)
     val worklist : constraint list ref = ref []
 
+    (* a function to create a new tvar *)
     fun fresh_tvar () : tvar =
         U.uref NONE
 
+    (* a function to extract the type from a tvar *)
     fun getTyp (v: tvar) : types.typ =
         case U.!! v of
             SOME ty => ty
           | NONE    => types.TDyn
 
+    (* a function that defines how the union between tvars should be executed *)
+    (* it has different cases:
+        - a function checks the input and the output type of a function separately
+        - a couple behaves similar to the function but in a different syntax 
+        - all other case are treated very simply:
+            - if we have two values if they are the same the no unification is needed
+            - if they are not the same we need to convert both to dynamic
+            - if only one value is given (the other is NONE), the only type is the result of the union
+            - if no types are given then a NONE is returned *)
     fun unifyEq (p: tvar, q: tvar) =
         U.unify 
             (fn (pc, qc) =>
@@ -53,6 +73,7 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                   | (SOME p, NONE) => SOME p)
             (p, q)
     
+    (* records a coercion into the worklist. if the coercion goes from a type to NONE, a new uref for the next element is generated*)
     fun add_coerce (p, q) = 
         case U.!! q of
             NONE => 
@@ -63,7 +84,7 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                 end
           | SOME x => worklist := Coerce (p, q) :: !worklist
 
-
+    (* expressions with annotated inner and outer types *)
     datatype ann_exp = 
         AInt of int * tvar * tvar
       | ABool of bool * tvar * tvar
@@ -75,6 +96,19 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
       | ACast of ann_exp * types.typ * tvar * tvar
       | ACouple of ann_exp * ann_exp * tvar * tvar
 
+    (* this functions infers from the context and the syntax subtrees the inner and outer types of each node *)
+    (* this follow some rules:
+        - EInt:     both inner and outer types are TInt
+        - EBool:    both inner and outer types are TBool
+        - EVar:     the inner and outer types are the same as the type in the environment
+        - ELam:     the inner type is a function type that goes from the parameter outer type to the body outer type
+        - EApp:     the inner type is the outer type of the body of the function
+        - ELet:     the inner type is the outer type of the body of the let expression 
+        - EIf:      the inner type is the union of the outer types of both branches of the if statement
+        - ECast:    the inner type is the union between the outer type of the expression and the cast type
+        - ECouple:  the inner type is a couple of the outer types of both expressions
+     *)
+    (* when not mentioning the outer type that means that if not already initialized is a copy of the inner type (a copy, not the same reference)*)
     fun infer (e: expressions.exp, tenv: tenv) : ann_exp * tvar * tvar =
         case e of
             expressions.EInt n => 
@@ -179,12 +213,14 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                 in
                     (ACouple (e1', e2', a, b), a, b) end
 
+    (* runs the annotation on an empty worklist *)
     fun generate (e: expressions.exp) : ann_exp * constraint list =
         (worklist := [];
          let 
             val (tree, _, _) = infer (e, [])
          in (tree, List.rev (!worklist)) end)
 
+    (* a function to convert a tvar to a string representation *)
     fun string_of_tvar (v: tvar) : string =
         let
             val ty_opt = U.!! v
@@ -195,6 +231,7 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
             types.string_of_typ ty
         end
     
+    (* pretty printing function for annotated expressions *)
     fun prettyp (e: ann_exp) : string =
         case e of
             AInt (n, t1, t2) => Int.toString n ^ " : " ^ string_of_tvar t2
@@ -242,7 +279,8 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                 in
                     "(couple " ^ e1_str ^ ", " ^ e2_str ^ ") : " ^ string_of_tvar t2  ^ "\n"
                 end
-
+    
+    (* pretty preting function for the worklist *)
     fun prettyp_worklist () : string =
         let
             val constraints = List.map (fn Coerce (p, q) => "Coerce: " ^ string_of_tvar p ^ " -> " ^ string_of_tvar q) (!worklist)
