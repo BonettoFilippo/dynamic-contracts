@@ -25,11 +25,10 @@ sig
       AInt    of int                 * tvar * tvar
     | ABool   of bool                * tvar * tvar
     | AVar    of string              * tvar * tvar
-    | ALam    of string * types.typ  * ann_exp * tvar * tvar
+    | ALam    of string * ann_exp * tvar * tvar
     | AApp    of ann_exp * ann_exp   * tvar * tvar
     | ALet    of string * ann_exp * ann_exp * tvar * tvar
     | AIf     of ann_exp * ann_exp * ann_exp * tvar * tvar
-    | ACast   of ann_exp * types.typ * tvar * tvar
     | ACouple of ann_exp * ann_exp   * tvar * tvar
 
   (* Infer annotated AST, returning it plus its inner/outer tvars *)

@@ -5,11 +5,10 @@ signature EXPRESSIONS = sig
         EInt of int
       | EBool of bool
       | EVar of string
-      | ELam of string * types.typ * exp 
+      | ELam of string * exp 
       | EApp of exp * exp
       | ELet of string * exp * exp
       | EIf of exp * exp * exp
-      | ECast of exp * types.typ
       | ECouple of exp * exp
 
     (* a function that converts expressions into human readable strings *)

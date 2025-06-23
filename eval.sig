@@ -8,9 +8,8 @@ signature EVAL = sig
     datatype value =
         VInt of int
       | VBool of bool
-      | VClosure of string * types.typ * expressions.exp * ((string * value) list)
+      | VClosure of string * expressions.exp * ((string * value) list)
       | VDynamic of value
-      | VError of string
       | VCouple of value * value
 
     (* the environment is a list of pairs of strings and values *)

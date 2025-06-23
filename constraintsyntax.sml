@@ -89,11 +89,10 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
         AInt of int * tvar * tvar
       | ABool of bool * tvar * tvar
       | AVar of string * tvar * tvar
-      | ALam of string * types.typ * ann_exp * tvar * tvar
+      | ALam of string * ann_exp * tvar * tvar
       | AApp of ann_exp * ann_exp * tvar * tvar
       | ALet of string * ann_exp * ann_exp * tvar * tvar
       | AIf of ann_exp * ann_exp * ann_exp * tvar * tvar
-      | ACast of ann_exp * types.typ * tvar * tvar
       | ACouple of ann_exp * ann_exp * tvar * tvar
 
     (* this functions infers from the context and the syntax subtrees the inner and outer types of each node *)
@@ -122,19 +121,24 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                     SOME (_, t1, t2, _) => 
                         (AVar (v, t1, t2), t1, t2)
                   | NONE => raise (eval.UnboundVariable "Unbound variable"))
-          | expressions.ELam (v, t, body) =>
+          | expressions.ELam (v, body) =>
                 let 
                     val a = fresh_tvar ()
                     val b = fresh_tvar ()
 
-                    val tenv' = (v, U.uref (SOME t), U.uref (SOME t), expressions.ELam (v, t, body)) :: tenv
+                    val (in_type, out_type) = (case List.find (fn (x, _, _, _) => x = v) tenv of
+                        SOME (_, t1, t2, _) => 
+                            (t1, t2)
+                      | NONE => raise (eval.UnboundVariable "Unbound variable"))
+
+                    val tenv' = (v, in_type, out_type, expressions.ELam (v, body)) :: tenv
                     val (body', inner_body, outer_body) = infer (body, tenv')
 
-                    val _ = unifyEq (a, U.uref (SOME (types.TFun (t, getTyp outer_body))))
+                    val _ = unifyEq (a, U.uref (SOME (types.TFun (getTyp out_type, getTyp outer_body))))
 
                     val _ = add_coerce (a, b)
                 in 
-                    (ALam (v, t, body', a, b), a, b) end
+                    (ALam (v, body', a, b), a, b) end
           | expressions.EApp (e1, e2) =>
                 let 
                     val a = fresh_tvar ()
@@ -144,10 +148,10 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                     val (arg', inner_arg, outer_arg) = infer (e2, tenv)
 
                     val _ = (case e1 of
-                        expressions.ELam (x, t, body) => 
+                        expressions.ELam (x, body) => 
                             let 
-                                val (f'', inner_f'', outer_f'') = infer (expressions.ELam (x, getTyp outer_arg, body), tenv)
-                                val _ = (worklist := (   case !worklist of
+                                val (f'', inner_f'', outer_f'') = infer (expressions.ELam (x, body), ((x, inner_arg, outer_arg, expressions.ELam (x, body))::tenv))
+                                val _ = (worklist := (case !worklist of
                                                     [] => []
                                                   | _::rest => rest))
                             in
@@ -160,9 +164,9 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                       | expressions.EVar v => 
                             (case List.find (fn (x, _, _, _) => x = v) tenv of
                                 SOME (_, _, _, evar) => (case evar of
-                                    expressions.ELam (x, t, body) => 
+                                    expressions.ELam (x, body) => 
                                         let 
-                                            val (f'', inner_f'', outer_f'') = infer (expressions.ELam (x, getTyp outer_arg, body), tenv)
+                                            val (f'', inner_f'', outer_f'') = infer (expressions.ELam (x, body), ((x, inner_arg, outer_arg, expressions.ELam (x, body))::tenv))
                                             val _ = (worklist := (   case !worklist of
                                                                 [] => []
                                                             | _::rest => rest))
@@ -174,9 +178,9 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                                                     raise eval.DynamicTypeError ("Expected function type in application")
                                         end
                                   | expressions.ELet (f, e1', e2') => (case e1' of
-                                        expressions.ELam (x, t, body) => 
+                                        expressions.ELam (x, body) => 
                                             let 
-                                                val (f'', inner_f'', outer_f'') = infer (expressions.ELam (x, getTyp outer_arg, body), tenv)
+                                                val (f'', inner_f'', outer_f'') = infer (expressions.ELam (x, body), ((x, inner_arg, outer_arg, expressions.ELam (x, body))::tenv))
                                                 val _ = (worklist := (   case !worklist of
                                                                     [] => []
                                                                 | _::rest => rest))
@@ -232,18 +236,6 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                     val _ = add_coerce (a, b)
                 in
                     (AIf (cond', e_then', e_else', a, b), a, b) end
-          | expressions.ECast (e, t) =>
-                let
-                    val a = fresh_tvar ()
-                    val b = fresh_tvar ()
-
-                    val (e', inner_e, outer_e) = infer (e, tenv)
-                    val _ = unifyEq (outer_e, a)
-                    val _ = unifyEq (a, U.uref (SOME t))
-
-                    val _ = add_coerce (a, b)
-                in
-                    (ACast (e', t, a, b), a, b) end
           | expressions.ECouple (e1, e2) =>
                 let
                     val a = fresh_tvar ()
@@ -282,12 +274,11 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
             AInt (n, t1, t2) => Int.toString n ^ " : " ^ string_of_tvar t2
           | ABool (b, t1, t2) => Bool.toString b ^ " : " ^ string_of_tvar t2 
           | AVar (v, t1, t2) => v ^ " : " ^ string_of_tvar t2  
-          | ALam (v, t, body, t1, t2) => 
+          | ALam (v, body, t1, t2) => 
                 let
-                    val param = types.string_of_typ t
                     val body_str = prettyp body
                 in
-                    "(λ" ^ v ^ " : " ^ param ^ ". " ^ body_str ^ ")  : \n " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2  ^ "\n"
+                    "(λ" ^ v ^ ". " ^ body_str ^ ")  : \n " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2  ^ "\n"
                 end
           | AApp (e1, e2, t1, t2) =>
                 let
@@ -310,12 +301,6 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                     val else_str = prettyp e_else
                 in
                     "(if " ^ cond_str ^ " then " ^ then_str ^ " else " ^ else_str ^ ") : \n " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2  ^ "\n"
-                end
-          | ACast (e, t, t1, t2) =>
-                let
-                    val e_str = prettyp e
-                in
-                    "(cast " ^ e_str ^ " as " ^ types.string_of_typ t ^ ") : \n " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2  ^ "\n"
                 end
           | ACouple (e1, e2, t1, t2) =>
                 let
