@@ -5,6 +5,8 @@ signature EXPRESSIONS = sig
         EInt of int
       | EBool of bool
       | EVar of string
+      | EPlus1 of exp
+      | ENeg of exp
       | ELam of string * exp 
       | EApp of exp * exp
       | ELet of string * exp * exp

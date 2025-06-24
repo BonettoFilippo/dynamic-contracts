@@ -7,6 +7,8 @@ structure expressions : EXPRESSIONS = struct
         EInt of int
       | EBool of bool
       | EVar of string
+      | EPlus1 of exp
+      | ENeg of exp
       | ELam of string * exp
       | EApp of exp * exp
       | ELet of string * exp * exp
@@ -17,6 +19,10 @@ structure expressions : EXPRESSIONS = struct
     fun string_of_exp (EInt n) = Int.toString n
       | string_of_exp (EBool b) = Bool.toString b
       | string_of_exp (EVar x) = x 
+      | string_of_exp (EPlus1 e) = 
+            "(" ^ string_of_exp e ^ " + 1)"
+      | string_of_exp (ENeg e) =
+            "(!" ^ string_of_exp e ^ ")"
       | string_of_exp (ELam (x, e)) = 
             "(fun " ^ x ^ " => " ^ string_of_exp e ^ ")"
       | string_of_exp (EApp (e1, e2)) = 

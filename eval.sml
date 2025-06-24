@@ -27,6 +27,22 @@ structure eval : EVAL = struct
                   | NONE => raise (UnboundVariable x))
           | expressions.EInt n => VInt n
           | expressions.EBool b => VBool b
+          | expressions.EPlus1 e1 =>
+                let
+                    val v1 = eval env e1
+                in
+                    (case v1 of
+                        VInt n => VInt (n + 1)
+                    | _ => raise DynamicTypeError "Expected an integer for +1")
+                end
+          | expressions.ENeg e1 =>
+                let
+                    val v1 = eval env e1
+                in
+                    (case v1 of
+                        VBool b => VBool (not b)
+                      | _ => raise DynamicTypeError "Expected a boolean for negation")
+                end
           | expressions.ELam (x, body) => VClosure (x, body, env)
           | expressions.EApp (e1, e2) =>
                 let

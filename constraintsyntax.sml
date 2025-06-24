@@ -89,6 +89,8 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
         AInt of int * tvar * tvar
       | ABool of bool * tvar * tvar
       | AVar of string * tvar * tvar
+      | APlus1 of ann_exp * tvar * tvar (* AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA *)
+      | ANeg of ann_exp * tvar * tvar
       | ALam of string * ann_exp * tvar * tvar
       | AApp of ann_exp * ann_exp * tvar * tvar
       | ALet of string * ann_exp * ann_exp * tvar * tvar
@@ -100,6 +102,8 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
         - EInt:     both inner and outer types are TInt
         - EBool:    both inner and outer types are TBool
         - EVar:     the inner and outer types are the same as the type in the environment
+        - EPlus1:   the inner type is the same as the outer type, both should be TInt if not there is a dynamic error
+        - ENeg:     the inner type is the same as the outer type, both should be TBool if not there is a dynamic error
         - ELam:     the inner type is a function type that goes from the parameter outer type to the body outer type
         - EApp:     the inner type is the outer type of the body of the function
         - ELet:     the inner type is the outer type of the body of the let expression 
@@ -121,6 +125,30 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                     SOME (_, t1, t2, _) => 
                         (AVar (v, t1, t2), t1, t2)
                   | NONE => raise (eval.UnboundVariable "Unbound variable"))
+          | expressions.EPlus1 e1 =>
+                let
+                    val a = fresh_tvar ()
+                    val b = fresh_tvar ()
+
+                    val (e1', inner_e1, outer_e1) = infer (e1, tenv)
+                    val _ = unifyEq (outer_e1, U.uref (SOME types.TInt))
+                    val _ = unifyEq (outer_e1, a)
+
+                    val _ = add_coerce (a, b)
+                in
+                    (APlus1 (e1', a, b), a, b) end
+          | expressions.ENeg e1 =>
+                let
+                    val a = fresh_tvar ()
+                    val b = fresh_tvar ()
+
+                    val (e1', inner_e1, outer_e1) = infer (e1, tenv)
+                    val _ = unifyEq (outer_e1, U.uref (SOME types.TBool))
+                    val _ = unifyEq (outer_e1, a)
+
+                    val _ = add_coerce (a, b)
+                in
+                    (ANeg (e1', a, b), a, b) end
           | expressions.ELam (v, body) =>
                 let 
                     val a = fresh_tvar ()
@@ -274,6 +302,18 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
             AInt (n, t1, t2) => Int.toString n ^ " : " ^ string_of_tvar t2
           | ABool (b, t1, t2) => Bool.toString b ^ " : " ^ string_of_tvar t2 
           | AVar (v, t1, t2) => v ^ " : " ^ string_of_tvar t2  
+          | APlus1 (e1, t1, t2) => 
+                let
+                    val e1_str = prettyp e1
+                in
+                    "(" ^ e1_str ^ " + 1) : " ^ string_of_tvar t2 ^ "\n"
+                end
+          | ANeg (e1, t1, t2) =>
+                let
+                    val e1_str = prettyp e1
+                in
+                    "(!" ^ e1_str ^ ") : " ^ string_of_tvar t2 ^ "\n"
+                end
           | ALam (v, body, t1, t2) => 
                 let
                     val body_str = prettyp body

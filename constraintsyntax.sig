@@ -22,14 +22,16 @@ sig
 
   (* Annotated expression with inner/outer type‐var refs *)
   datatype ann_exp =
-      AInt    of int                 * tvar * tvar
-    | ABool   of bool                * tvar * tvar
-    | AVar    of string              * tvar * tvar
-    | ALam    of string * ann_exp * tvar * tvar
-    | AApp    of ann_exp * ann_exp   * tvar * tvar
-    | ALet    of string * ann_exp * ann_exp * tvar * tvar
-    | AIf     of ann_exp * ann_exp * ann_exp * tvar * tvar
-    | ACouple of ann_exp * ann_exp   * tvar * tvar
+      AInt    of int                             * tvar * tvar
+    | ABool   of bool                            * tvar * tvar
+    | AVar    of string                          * tvar * tvar
+    | APlus1  of ann_exp                         * tvar * tvar
+    | ANeg    of ann_exp                         * tvar * tvar
+    | ALam    of string * ann_exp                * tvar * tvar
+    | AApp    of ann_exp * ann_exp               * tvar * tvar
+    | ALet    of string * ann_exp * ann_exp      * tvar * tvar
+    | AIf     of ann_exp * ann_exp * ann_exp     * tvar * tvar
+    | ACouple of ann_exp * ann_exp               * tvar * tvar
 
   (* Infer annotated AST, returning it plus its inner/outer tvars *)
   val infer    : expressions.exp * tenv -> ann_exp * tvar * tvar
