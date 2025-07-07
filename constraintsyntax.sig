@@ -3,7 +3,7 @@ sig
   structure U : UREF
 
   (* Type of type‐variable references *)
-  type tvar = types.typ option U.uref
+  type tvar = (types.typ * int)  U.uref
   (* Type environment mapping identifiers to type‐variable refs *)
   type tenv = (string * tvar * tvar * expressions.exp) list
 
@@ -22,16 +22,16 @@ sig
 
   (* Annotated expression with inner/outer type‐var refs *)
   datatype ann_exp =
-      AInt    of int                             * tvar * tvar
-    | ABool   of bool                            * tvar * tvar
-    | AVar    of string                          * tvar * tvar
-    | APlus1  of ann_exp                         * tvar * tvar
-    | ANeg    of ann_exp                         * tvar * tvar
-    | ALam    of string * ann_exp                * tvar * tvar
-    | AApp    of ann_exp * ann_exp               * tvar * tvar
-    | ALet    of string * ann_exp * ann_exp      * tvar * tvar
-    | AIf     of ann_exp * ann_exp * ann_exp     * tvar * tvar
-    | ACouple of ann_exp * ann_exp               * tvar * tvar
+      AInt    of int                             * tvar * tvar * int
+    | ABool   of bool                            * tvar * tvar * int
+    | AVar    of string                          * tvar * tvar * int
+    | APlus1  of ann_exp                         * tvar * tvar * int
+    | ANeg    of ann_exp                         * tvar * tvar * int
+    | ALam    of string * ann_exp                * tvar * tvar * int
+    | AApp    of ann_exp * ann_exp               * tvar * tvar * int
+    | ALet    of string * ann_exp * ann_exp      * tvar * tvar * int
+    | AIf     of ann_exp * ann_exp * ann_exp     * tvar * tvar * int
+    | ACouple of ann_exp * ann_exp               * tvar * tvar * int
 
   (* Infer annotated AST, returning it plus its inner/outer tvars *)
   val infer    : expressions.exp * tenv -> ann_exp * tvar * tvar

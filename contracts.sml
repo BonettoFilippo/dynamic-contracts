@@ -17,11 +17,21 @@ structure contracts : COONTRACTS = struct
         end
 
     fun handle_dyn_type_error (exp: expressions.exp) : eval.value =
-        
+
         (* need to give valuable messages when throwing the exceptions. 
         need to be able to refer to the internal and outer types. 
         
-        then i need to add an equality contraint on that.
+        maybe: 
+            - change the infer function so that id doesn't generate errors
+            - should add something new to the annotated expression type
+                - these should be an error parameter, to keep track of who generated the error. 
+                - i think that once i find an error i should be able to stop the annotation
+                  as i don't need anything beyond that point. 
+        
+        in this function i need to be able to handle both the worklist (the set
+        of constraints) and the annotated tree. 
+
+        then i need to add an equality constraint on that.
         fir first order functions i can just use the already 
         existing contraints and check if there are any dynamic values when generating
         
@@ -34,6 +44,13 @@ structure contracts : COONTRACTS = struct
             - for actual functions if the result value is changed there is a problem within the function
               otherwise it is within the caller.
         i need to keep in mind that if the problem is within the caller, i need to find who generated the value
+
+        VERY IMPORTANT   
+        one solution is to add to the uref the line that generated that type
+        this means that i need some value line for newly generated types (something like -1?)
+        i think that only EInt, EBool, and ELam should be able to generate new values for this field. 
+            
             *)
 
+        
 end

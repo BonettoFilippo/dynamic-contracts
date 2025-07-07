@@ -10,6 +10,7 @@ signature EVAL = sig
       | VBool of bool
       | VClosure of string * expressions.exp * ((string * value) list)
       | VDynamic of value
+      | VNull
       | VCouple of value * value
 
     (* the environment is a list of pairs of strings and values *)

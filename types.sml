@@ -8,6 +8,7 @@ struct
 		TInt
 	  | TBool
 	  | TDyn
+	  | TNull
 	  | TFun of typ * typ
 	  | TCouple of typ * typ
 
@@ -15,6 +16,7 @@ struct
     fun string_of_typ TInt = "int"
       | string_of_typ TBool = "bool"
       | string_of_typ TDyn = "dyn"
+      | string_of_typ TNull = "null"
       | string_of_typ (TFun (t1, t2)) = "(" ^ string_of_typ t1 ^ " -> " ^ string_of_typ t2 ^ ")"
 	  | string_of_typ (TCouple (t1, t2)) = "(" ^ string_of_typ t1 ^ ", " ^ string_of_typ t2 ^ ")"
 end;

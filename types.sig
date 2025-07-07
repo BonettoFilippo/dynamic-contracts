@@ -5,6 +5,7 @@ sig
         TInt
       | TBool
       | TDyn
+      | TNull
       | TFun of typ * typ
       | TCouple of typ * typ
 

@@ -12,6 +12,7 @@ structure eval : EVAL = struct
       | VBool of bool
       | VClosure of string * expressions.exp * ((string * value) list)
       | VDynamic of value
+      | VNull
       | VCouple of value * value
 
     (* the environment is a list of pairs of strings and values *)
@@ -88,6 +89,7 @@ structure eval : EVAL = struct
                     types.TFun ((value_to_type inputType), outputType)
                 end
           | VDynamic v => types.TDyn
+          | VNull => types.TNull
           | VCouple (v1, v2) => types.TCouple (value_to_type v1, value_to_type v2)
 
 

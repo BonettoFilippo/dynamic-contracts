@@ -155,7 +155,7 @@ val _ =
 
 val _ =
     (CS.generate (EVar "y");
-        raise Fail "Expected UnboundVariable exception")
+        raise Fail "Expected UnboundVariable ")
     handle eval.UnboundVariable(_) => ()
 
 val _ =
