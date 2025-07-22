@@ -10,6 +10,8 @@ Group is
     eval.sml
     constraintsyntax.sig
     constraintsyntax.sml
+    evalannotated.sig
+    evalannotated.sml
 
 (*
     to execute this code, write in terminal:
