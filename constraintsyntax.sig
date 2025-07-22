@@ -3,9 +3,9 @@ sig
   structure U : UREF
 
   (* Type of type‐variable references *)
-  type tvar = (types.typ * int)  U.uref
+  type tvar = (types.typ * int list)  U.uref
   (* Type environment mapping identifiers to type‐variable refs *)
-  type tenv = (string * tvar * tvar * expressions.exp) list
+  type tenv = (string * tvar * tvar) list
 
   (* Constraints collected during inference *)
   datatype constraint = Coerce of tvar * tvar
