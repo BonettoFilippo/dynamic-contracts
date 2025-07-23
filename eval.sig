@@ -2,7 +2,7 @@ signature EVAL = sig
 
     (* exceptions for errors *)
     exception UnboundVariable of string
-    exception DynamicTypeError of string
+    exception DynamicTypeError of int * string
 
     (* the possible values follow the same types shown in the types module. it also incluedes the error value to express exeptions*)
     datatype value =

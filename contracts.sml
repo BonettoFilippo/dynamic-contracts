@@ -7,16 +7,17 @@
 
 structure contracts : COONTRACTS = struct
 
-    fun execute (exp: expressions.exp) : eval.value =
+    fun execute (exp: expressions.exp) : evalannotated.ann_value =
         let 
-            val result = eval.run exp handle
-                DynamicTypeError _ => handle_dyn_type_error exp
+            val (annotated_exp, constraints) = constraintsyntax.generate exp
+            val result = evalannotated.run_ann annotated_exp handle
+                DynamicTypeError _ => handle_dyn_type_error annotated_exp constraints
               | e => raise e
         in
             result
         end
 
-    fun handle_dyn_type_error (exp: expressions.exp) : eval.value =
+    fun handle_dyn_type_error (exp: constraintsyntax.ann_exp, con: constraints.constraint list) : evalannotated.ann_value =
 
         (* need to give valuable messages when throwing the exceptions. 
         need to be able to refer to the internal and outer types. 

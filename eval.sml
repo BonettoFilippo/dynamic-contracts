@@ -34,7 +34,7 @@ structure eval : EVAL = struct
                 in
                     (case v1 of
                         VInt n => VInt (n + 1)
-                      | _ => raise DynamicTypeError "Expected an integer for +1")
+                      | _ => raise DynamicTypeError 0 "Expected an integer for +1")
                 end
           | expressions.ENeg e1 =>
                 let
@@ -42,7 +42,7 @@ structure eval : EVAL = struct
                 in
                     (case v1 of
                         VBool b => VBool (not b)
-                      | _ => raise DynamicTypeError "Expected a boolean for negation")
+                      | _ => raise DynamicTypeError 0 "Expected a boolean for negation")
                 end
           | expressions.ELam (x, body) => VClosure (x, body, env)
           | expressions.EApp (e1, e2) =>
@@ -53,7 +53,7 @@ structure eval : EVAL = struct
                     (case v1 of
                         VClosure (x, body, cloEnv) =>
                             eval ((x, v2) :: cloEnv) body
-                      | _ => raise DynamicTypeError "Attempted to apply a non-function")
+                      | _ => raise DynamicTypeError 0 "Attempted to apply a non-function")
                 end
           | expressions.EIf (cond, e_then, e_else) =>
                 let
@@ -62,7 +62,7 @@ structure eval : EVAL = struct
                     (case vcond of
                         VBool true => eval env e_then
                       | VBool false => eval env e_else
-                      | _ => raise DynamicTypeError "Condition is not a boolean")
+                      | _ => raise DynamicTypeError 0 "Condition is not a boolean")
                 end
           | expressions.ELet (x, e1, e2) =>
                 let

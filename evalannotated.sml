@@ -23,25 +23,25 @@ structure eval_ann : EVAL_ANN = struct
                   | NONE => raise (eval.UnboundVariable x))
           | constraintsyntax.AInt (n, _, _, _) => AVInt n
           | constraintsyntax.ABool (b, _, _, _) => AVBool b
-          | constraintsyntax.APlus1 (e1, _, _, _) =>
+          | constraintsyntax.APlus1 (e1, _, _, idx) =>
                 let
                     val v1 = eval_ann env e1
                 in
                     (case v1 of
                         AVInt n => AVInt (n + 1)
-                      | _ => raise eval.DynamicTypeError "Expected an integer for +1")
+                      | _ => raise eval.DynamicTypeError idx "Expected an integer for +1")
                 end
-          | constraintsyntax.ANeg (e1, _, _, _) =>
+          | constraintsyntax.ANeg (e1, _, _, idx) =>
                 let
                     val v1 = eval_ann env e1
                 in
                     (case v1 of
                         AVBool b => AVBool (not b)
-                      | _ => raise eval.DynamicTypeError "Expected a boolean for negation")
+                      | _ => raise eval.DynamicTypeError idx "Expected a boolean for negation")
                 end
           | constraintsyntax.ALam (x, body, _, _, _) => 
                 AVClosure (x, body, env)
-          | constraintsyntax.AApp (e1, e2, _, _, _) =>
+          | constraintsyntax.AApp (e1, e2, _, _, idx) =>
                 let
                     val v1 = eval_ann env e1
                     val v2 = eval_ann env e2
@@ -49,16 +49,16 @@ structure eval_ann : EVAL_ANN = struct
                     (case v1 of
                         AVClosure (x, body, cloEnv) =>
                             eval_ann ((x, v2) :: cloEnv) body
-                      | _ => raise eval.DynamicTypeError "Attempted to apply a non-function")
+                      | _ => raise eval.DynamicTypeError idx "Attempted to apply a non-function")
                 end
-          | constraintsyntax.AIf (cond, e_then, e_else, _, _, _) =>
+          | constraintsyntax.AIf (cond, e_then, e_else, _, _, idx) =>
                 let
                     val vcond = eval_ann env cond
                 in
                     (case vcond of
                         AVBool true => eval_ann env e_then
                       | AVBool false => eval_ann env e_else
-                      | _ => raise eval.DynamicTypeError "Condition is not a boolean")
+                      | _ => raise eval.DynamicTypeError idx "Condition is not a boolean")
                 end
           | constraintsyntax.ALet (x, e1, e2, _, _, _) =>
                 let
