@@ -29,7 +29,7 @@ structure eval_ann : EVAL_ANN = struct
                 in
                     (case v1 of
                         AVInt n => AVInt (n + 1)
-                      | _ => raise eval.DynamicTypeError idx "Expected an integer for +1")
+                      | _ => raise eval.DynamicTypeError (idx, "Expected an integer for +1"))
                 end
           | constraintsyntax.ANeg (e1, _, _, idx) =>
                 let
@@ -37,7 +37,7 @@ structure eval_ann : EVAL_ANN = struct
                 in
                     (case v1 of
                         AVBool b => AVBool (not b)
-                      | _ => raise eval.DynamicTypeError idx "Expected a boolean for negation")
+                      | _ => raise eval.DynamicTypeError (idx, "Expected a boolean for negation"))
                 end
           | constraintsyntax.ALam (x, body, _, _, _) => 
                 AVClosure (x, body, env)
@@ -49,7 +49,7 @@ structure eval_ann : EVAL_ANN = struct
                     (case v1 of
                         AVClosure (x, body, cloEnv) =>
                             eval_ann ((x, v2) :: cloEnv) body
-                      | _ => raise eval.DynamicTypeError idx "Attempted to apply a non-function")
+                      | _ => raise eval.DynamicTypeError (idx, "Attempted to apply a non-function"))
                 end
           | constraintsyntax.AIf (cond, e_then, e_else, _, _, idx) =>
                 let
@@ -58,7 +58,7 @@ structure eval_ann : EVAL_ANN = struct
                     (case vcond of
                         AVBool true => eval_ann env e_then
                       | AVBool false => eval_ann env e_else
-                      | _ => raise eval.DynamicTypeError idx "Condition is not a boolean")
+                      | _ => raise eval.DynamicTypeError (idx, "Condition is not a boolean"))
                 end
           | constraintsyntax.ALet (x, e1, e2, _, _, _) =>
                 let
