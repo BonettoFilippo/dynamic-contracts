@@ -2,6 +2,8 @@
 
 structure eval_ann : EVAL_ANN = struct
 
+    exception DynamicTypeContractError of int * string * exn list
+
     datatype ann_value =
             AVInt of int
           | AVBool of bool
@@ -42,7 +44,7 @@ structure eval_ann : EVAL_ANN = struct
           | constraintsyntax.ALam (x, body, _, _, _) => 
                 AVClosure (x, body, env)
           | constraintsyntax.AApp (e1, e2, _, _, idx) =>
-                let
+                (let
                     val v1 = eval_ann env e1
                     val v2 = eval_ann env e2
                 in
@@ -50,7 +52,25 @@ structure eval_ann : EVAL_ANN = struct
                         AVClosure (x, body, cloEnv) =>
                             eval_ann ((x, v2) :: cloEnv) body
                       | _ => raise eval.DynamicTypeError (idx, "Attempted to apply a non-function"))
-                end
+                end handle
+                    eval.DynamicTypeError (id, msg) =>
+                        let 
+                            val _ = raise DynamicTypeContractError (idx, "Contract error, need to assign blame", [eval.DynamicTypeError (id, msg)])
+                        in 
+                            AVNull
+                        end
+                  | DynamicTypeContractError (id, msg, ex) =>
+                        let 
+                            val _ = raise DynamicTypeContractError (idx, "Contract error, need to assign blame", DynamicTypeContractError (id, msg, ex)::ex)
+                        in 
+                            AVNull
+                        end
+                  | e => 
+                        let
+                            val _ = raise e 
+                        in 
+                            AVNull
+                        end )
           | constraintsyntax.AIf (cond, e_then, e_else, _, _, idx) =>
                 let
                     val vcond = eval_ann env cond

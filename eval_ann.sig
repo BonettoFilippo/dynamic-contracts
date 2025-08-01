@@ -1,5 +1,7 @@
 signature EVAL_ANN = sig
 
+    exception DynamicTypeContractError of int * string * exn list
+
     datatype ann_value =
             AVInt of int
           | AVBool of bool

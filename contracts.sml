@@ -5,19 +5,197 @@
     - start with first order functions but keep in mind the extension
     *)
 
-structure contracts : COONTRACTS = struct
+structure contracts : CONTRACTS = struct
 
-    fun execute (exp: expressions.exp) : evalannotated.ann_value =
+    exception ExpressionNotFound of int
+    exception UnexpectedExpression of constraintsyntax.ann_exp
+
+    fun getidx (exp: constraintsyntax.ann_exp) : int =
+        case exp of
+            constraintsyntax.AInt (_, _, _, idx) => idx
+          | constraintsyntax.ABool (_, _, _, idx) => idx
+          | constraintsyntax.AVar (_, _, _, idx) => idx
+          | constraintsyntax.APlus1 (_, _, _, idx) => idx
+          | constraintsyntax.ANeg (_, _, _, idx) => idx
+          | constraintsyntax.ALam (_, _, _, _, idx) => idx
+          | constraintsyntax.AApp (_, _, _, _, idx) => idx
+          | constraintsyntax.AIf (_, _, _, _, _, idx) => idx
+          | constraintsyntax.ALet (_, _, _, _, _, idx) => idx
+          | constraintsyntax.ACouple (_, _, _, _, idx) => idx
+
+    fun findexp (exp: constraintsyntax.ann_exp, inx: int): constraintsyntax.ann_exp =
+        case exp of
+            constraintsyntax.AInt (n, _, _, idx) => 
+                if idx = inx then exp else raise ExpressionNotFound inx
+          | constraintsyntax.ABool (b, _, _, idx) => 
+                if idx = inx then exp else raise ExpressionNotFound inx
+          | constraintsyntax.AVar (x, _, _, idx) =>
+                if idx = inx then exp else raise ExpressionNotFound inx
+          | constraintsyntax.APlus1 (e1, _, _, idx) =>
+                if idx = inx then exp else findexp (e1, inx)
+          | constraintsyntax.ANeg (e1, _, _, idx) =>
+                if idx = inx then exp else findexp (e1, inx)
+          | constraintsyntax.ALam (x, body, _, _, idx) =>
+                if idx = inx then exp else findexp (body, inx)
+          | constraintsyntax.AApp (e1, e2, _, _, idx) =>
+                if idx = inx then exp else
+                    let 
+                        val idx2 = getidx e2
+                    in
+                        if 
+                            inx < idx2 
+                        then
+                            findexp (e1, inx)
+                        else
+                            findexp (e2, inx)
+                    end
+          | constraintsyntax.ALet (x, e1, e2, _, _, idx) =>
+                if idx = inx then exp else
+                    let 
+                        val idx2 = getidx e2
+                    in
+                        if 
+                            inx < idx2 
+                        then
+                            findexp (e1, inx)
+                        else
+                            findexp (e2, inx)
+                    end
+          | constraintsyntax.AIf (cond, e_then, e_else, _, _, idx) =>
+                if idx = inx then exp else 
+                    let 
+                        val idx2 = getidx e_then
+                        val idx3 = getidx e_else
+                    in
+                        if 
+                            inx < idx2 
+                        then
+                            findexp (cond, inx)
+                        else if 
+                            inx < idx3 
+                        then
+                            findexp (e_then, inx)
+                        else
+                            findexp (e_else, inx)
+                    end
+          | constraintsyntax.ACouple (e1, e2, _, _, idx) =>
+                if idx = inx then exp else
+                    let 
+                        val idx2 = getidx e2
+                    in
+                        if 
+                            inx < idx2 
+                        then
+                            findexp (e1, inx)
+                        else
+                            findexp (e2, inx)
+                    end
+
+    fun handle_dyn_type_error (idx: int, exp: constraintsyntax.ann_exp, con: constraintsyntax.constraint list, exn_lst: exn list) =
+
         let 
-            val (annotated_exp, constraints) = constraintsyntax.generate exp
-            val result = evalannotated.run_ann annotated_exp handle
-                DynamicTypeError _ => handle_dyn_type_error annotated_exp constraints
-              | e => raise e
-        in
-            result
+            val e = findexp (exp, idx)
+        in 
+            case e of
+                constraintsyntax.APlus1 (_, t1, t2, _) => 
+                    let 
+                        val (t, n) = URef.!! t2
+                        val tv1 = URef.uref (types.TInt, [idx + 1])
+                        val tv2 = URef.uref (types.TInt, [idx + 1])
+                        val e' = constraintsyntax.APlus1 ((constraintsyntax.AInt (1, tv1, tv2, idx + 1)), t1, t2, idx)
+                        val result = eval_ann.run_ann e' handle
+                            eval.DynamicTypeError (id, _) => 
+                                if 
+                                    id = idx 
+                                then
+                                    raise eval.DynamicTypeError (id,  "Even changing the value passed to the function to a integer doesn't solve the error.")
+                                else 
+                                    raise eval.DynamicTypeError (id, "Changing the value passed to the function to a integer solves the error, but generates a new one at line " ^ Int.toString id ^ ".")
+                          | e => raise eval.DynamicTypeError (idx, "Changing the value passed to the function to a integer solves the error, but generates a new one.")
+                    in 
+                        raise eval.DynamicTypeError (idx, "The error is in the caller of the +1 expression at line " ^ Int.toString idx ^". The value passed has type " ^ types.string_of_typ t ^ " but expected an integer. The value was most likely generated at line " ^ constraintsyntax.print_list n ^ ".")
+                    end
+              | constraintsyntax.ANeg (_, t1, t2, _) => 
+                    let 
+                        val (t, n) = URef.!! t2
+                        val tv1 = URef.uref (types.TBool, [idx + 1])
+                        val tv2 = URef.uref (types.TBool, [idx + 1])
+                        val e' = constraintsyntax.ANeg ((constraintsyntax.ABool (true, tv1, tv2, idx + 1)), t1, t2, idx)
+                        val result = eval_ann.run_ann e' handle
+                            eval.DynamicTypeError (id, _) => 
+                                if 
+                                    id = idx 
+                                then
+                                    raise eval.DynamicTypeError (id, "Even changing the value passed to the function to a boolean doesn't solve the error.")
+                                else 
+                                    raise eval.DynamicTypeError (id, "Changing the value passed to the function to a boolean solves the error, but generates a new one at line " ^ Int.toString id ^ ".")
+                          | e => raise eval.DynamicTypeError (idx, "Changing the value passed to the function to a boolean solves the error, but generates a new one.")
+                    in 
+                        raise eval.DynamicTypeError (idx, "The error is in the caller of the negation expression at line " ^ Int.toString idx ^". The value passed has type " ^ types.string_of_typ t ^ " but expected a boolean. The value was most likely generated at line " ^ constraintsyntax.print_list n ^ ".")
+                    end
+              | constraintsyntax.AApp (f, v, t1, t2, _) => 
+                    let 
+                        (in_t, in_n) = 
+                    in
+                    end
+                    (* questa sezione di codice deve:
+                        generare il contratto
+                            vedere il tipo di partenza
+                            vedere il potenziale tipo di ritorno
+                        farlo combaciare con il contratto gia esistente
+                        determinare se il problema e stato generato prima o dopo l'esecuzione (dal chiamante o dal chiamato)
+                            se il problema é prima, provare a modificare l'input per sottostare al contratto e dimostrare che non ci sono errori
+                            se il problema é dopo 
+                                provare a cambiare l'interno per sottostare al contratto
+                                se non ci sono errori allora il contratto é infranto
+                                    notifica all'utente che il contratto é infranto
+                                    ricorrere sul prossimo errore della lista per controllare altri eventuali contratti *)
+                    raise eval.DynamicTypeError (idx, "The error is in the application of a function")
+              | constraintsyntax.AIf (_, exp_then, exp_else, t1, t2, _) => 
+                    let 
+                        val (t, n) = URef.!! t2
+                        val tv1 = URef.uref (types.TBool, [idx + 1])
+                        val tv2 = URef.uref (types.TBool, [idx + 1])
+                        val e' = constraintsyntax.AIf ((constraintsyntax.ABool (true, tv1, tv2, idx + 1)), exp_then, exp_else, t1, t2, idx)
+                        val result = eval_ann.run_ann e' handle
+                            eval.DynamicTypeError (id, _) => 
+                                if 
+                                    id = idx 
+                                then
+                                    raise eval.DynamicTypeError (id, "Even changing the value passed as the condition to the if expression to a boolean doesn't solve the error.")
+                                else 
+                                    raise eval.DynamicTypeError (id, "Changing the value passed as the condition to the if expression to a boolean solves the error, but generates a new one at line " ^ Int.toString id ^ ".")
+                          | e => raise eval.DynamicTypeError (idx, "Changing the value passed as the condition to the if expression to a boolean solves the error, but generates a new one.")
+                    in 
+                        raise eval.DynamicTypeError (idx, "The error is in the generation of the condition of the if expression at line " ^ Int.toString idx ^". The value passed as a condition has type " ^ types.string_of_typ t ^ " but expected a boolean. The value was most likely generated at line " ^ constraintsyntax.print_list n ^ ".")
+                    end
+                    (*TODO ALSO NEED TO RETURN THE ELEMENT THAT IS RESPONSIBLE OF GENERATING THE TYPE (MAYBE?
+                    THIS COULD LEAD TO A PROBLEM AS IT WOULD BE DIFFICULT TO RECONGNIZE THE ACTUAL ELEMENT IF IT GOT CHANGED.
+                    MAYBE IT IS JUST BETTER TO PROVE THAT IF CHANGING THE VALUE WITH A BOOLEAN THEN THE ERROR IS AVOIDED
+                    KEEP IN MIND THAT THIS DOES NOT MEAN THAT THERE IS NO OTHER ERROR, BUT JUST THAT THIS SPECIFIC ERROR IS AVOIDED)*)
+              | _ => raise UnexpectedExpression e
         end
 
-    fun handle_dyn_type_error (exp: constraintsyntax.ann_exp, con: constraints.constraint list) : evalannotated.ann_value =
+    fun execute (exp: expressions.exp) : eval_ann.ann_value=
+        let 
+            val (annotated_exp, constraints) = constraintsyntax.generate exp
+        in
+            eval_ann.run_ann annotated_exp handle
+                eval.DynamicTypeError (idx, _) => handle_dyn_type_error (idx, annotated_exp, constraints, [])
+              | eval_ann.DynamicTypeContractError (idx, msg, lst) => handle_dyn_type_error (idx, annotated_exp, constraints, lst)
+              | e => raise e
+        end
+        (*
+        ci sono 4 posti in cui posso generare un errore dinamico:
+        - APlus1 
+            - errore banale la colpa è sempre del chiamante (di chi ha generato il tipo del chiamante)
+        - ANeg
+            - errore banale la colpa è sempre del chiamante (di chi ha generato il tipo del chiamante)
+        - AApp
+        - AIf
+            - non è una funzione, la colpa è sempre di chi ha generato il tipo
+
+        *)
 
         (* need to give valuable messages when throwing the exceptions. 
         need to be able to refer to the internal and outer types. 

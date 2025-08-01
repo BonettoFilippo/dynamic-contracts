@@ -39,6 +39,8 @@ sig
      and the list of accumulated constraints *)
   val generate : expressions.exp -> ann_exp * constraint list
 
+  val print_list : int list -> string
+
   (* a function to convert a tvar to a string representation *)
   val string_of_tvar : tvar -> string 
   (* pretty preting function for annotations *)
