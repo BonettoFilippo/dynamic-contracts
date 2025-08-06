@@ -2,8 +2,8 @@
 
 structure eval_ann : EVAL_ANN = struct
 
-    exception DynamicTypeContractError of int * string * exn list
-
+    
+    
     datatype ann_value =
             AVInt of int
           | AVBool of bool
@@ -14,6 +14,8 @@ structure eval_ann : EVAL_ANN = struct
 
     (* the environment is a list of pairs of strings and values *)
     type ann_env = (string * ann_value) list
+
+    exception DynamicTypeContractError of int * ann_env * string * exn list
 
     (* the evaluator takes an environment and an expression, and returns a value *)
     (* recurses the syntax tree up to the leaves to solve inner nodes*)
@@ -55,13 +57,13 @@ structure eval_ann : EVAL_ANN = struct
                 end handle
                     eval.DynamicTypeError (id, msg) =>
                         let 
-                            val _ = raise DynamicTypeContractError (idx, "Contract error, need to assign blame", [eval.DynamicTypeError (id, msg)])
+                            val _ = raise DynamicTypeContractError (idx, env, "Contract error, need to assign blame", [eval.DynamicTypeError (id, msg)])
                         in 
                             AVNull
                         end
-                  | DynamicTypeContractError (id, msg, ex) =>
+                  | DynamicTypeContractError (id, env', msg, ex) =>
                         let 
-                            val _ = raise DynamicTypeContractError (idx, "Contract error, need to assign blame", DynamicTypeContractError (id, msg, ex)::ex)
+                            val _ = raise DynamicTypeContractError (idx, env, "Contract error, need to assign blame", DynamicTypeContractError (id, env', msg, ex)::ex)
                         in 
                             AVNull
                         end
@@ -88,6 +90,25 @@ structure eval_ann : EVAL_ANN = struct
                 end
           | constraintsyntax.ACouple (e1, e2, _, _, _) =>
                 AVCouple (eval_ann env e1, eval_ann env e2)
+
+    
+    fun ann_value_to_type (v: ann_value) : types.typ =
+        case v of
+            AVInt _ => types.TInt
+          | AVBool _ => types.TBool
+          | AVClosure (input, output, env) => 
+                let
+                    val inputType =     
+                        (case List.find (fn (x, _) => x = input) env of
+                            SOME (_, v) => v
+                          | NONE => AVDynamic (AVInt 0)) 
+                    val outputType = ann_value_to_type (eval_ann ((input, inputType) :: env) output)
+                in
+                    types.TFun ((ann_value_to_type inputType), outputType)
+                end
+          | AVDynamic v => types.TDyn
+          | AVNull => types.TNull
+          | AVCouple (v1, v2) => types.TCouple (ann_value_to_type v1, ann_value_to_type v2)
 
     (* an alias to run the evaluator *)
     fun run_ann e = eval_ann [] e

@@ -91,7 +91,57 @@ structure contracts : CONTRACTS = struct
                             findexp (e2, inx)
                     end
 
-    fun handle_dyn_type_error (idx: int, exp: constraintsyntax.ann_exp, con: constraintsyntax.constraint list, exn_lst: exn list) =
+    fun get_actual_typ (exp: constraintsyntax.ann_exp, env: eval_ann.ann_env) : types.typ =
+        case exp of
+            constraintsyntax.AInt (_, _, _, _) => types.TInt
+          | constraintsyntax.ABool (_, _, _, _) => types.TBool
+          | constraintsyntax.AVar (x, _, _, _) => 
+                (case List.find (fn (y, _) => x = y) env of
+                    SOME (_, v) => eval_ann.ann_value_to_type v
+                  | NONE => raise (eval.UnboundVariable x))
+          | constraintsyntax.APlus1 (_, _, _, _) => types.TInt
+          | constraintsyntax.ANeg (_, _, _, _) => types.TBool
+          | constraintsyntax.ALam (s, b, _, _, _) => 
+                let
+                    val inp = 
+                    (case List.find (fn (y, _) => s = y) env of
+                        SOME (_, v) => v
+                      | NONE => eval_ann.AVDynamic (eval_ann.AVInt 0))
+                    val inp' = eval_ann.ann_value_to_type inp
+                    val out = get_actual_typ (b, env)
+                in
+                    types.TFun (inp', out) 
+                end
+          | constraintsyntax.AApp (f, inp, _, _, i) => 
+                let
+                    val f' = eval_ann.eval_ann env f
+                    val n = (case f' of 
+                        eval_ann.AVClosure (x, _, _) => x
+                      | _ => raise eval.DynamicTypeError (i, "Expected a function for application"))
+                    val inp' = eval_ann.eval_ann env inp
+                in
+                    get_actual_typ (f, ((n, inp') :: env))
+                end
+          | constraintsyntax.AIf (c, t, e, _, _, _) => 
+                let
+                    val cond_type = eval_ann.run_ann c
+                in
+                    case cond_type of
+                        eval_ann.AVBool true => 
+                            get_actual_typ (t, env)
+                      | _ => 
+                            get_actual_typ (e, env)
+                end
+          | constraintsyntax.ALet (s, e1, e2, _, _, _) => get_actual_typ (e2, ((s, eval_ann.run_ann e1) :: env))
+          | constraintsyntax.ACouple (e1, e2, _, _, _) => 
+                let 
+                    val t1 = get_actual_typ (e1, env)
+                    val t2 = get_actual_typ (e2, env)
+                in
+                    types.TCouple (t1, t2)
+                end
+
+    fun handle_dyn_type_error (idx: int, exp: constraintsyntax.ann_exp, env: eval_ann.ann_env , con: constraintsyntax.constraint list, exn_lst: exn list) =
 
         let 
             val e = findexp (exp, idx)
@@ -134,21 +184,25 @@ structure contracts : CONTRACTS = struct
                         raise eval.DynamicTypeError (idx, "The error is in the caller of the negation expression at line " ^ Int.toString idx ^". The value passed has type " ^ types.string_of_typ t ^ " but expected a boolean. The value was most likely generated at line " ^ constraintsyntax.print_list n ^ ".")
                     end
               | constraintsyntax.AApp (f, v, t1, t2, _) => 
-                    let 
-                        (in_t, in_n) = 
-                    in
-                    end
+                    (* the function i wrote above (get_actual_typ) ignores any errors. there is a need to check if any errors come up in the input element of the function
+                        it should be fairly easy to find them as we can check the idx of the any other error in the list, and check if it is between the execution of the input and the execution of the body *)
                     (* questa sezione di codice deve:
                         generare il contratto
+                            PER GENERARE IL CONTRATTO USARE get_actual_typ SU V E SU T1 (DOPO AVER ESTESO L'ENV USANDO IL VALORE DI T1)
+                            E' IMPORTANTE ANCHE CONTROLLARE CATCHARE ERRORI
+                            CONTROLLARE SE CI SONO ERRORI CHE VENGONO GENERATI IN QUELLA SEZIONE DEL CODICE
                             vedere il tipo di partenza
                             vedere il potenziale tipo di ritorno
                         farlo combaciare con il contratto gia esistente
+                        GIA DA QUI E' POSSIBILE VEDERE DOVE CI POSSONO ESSERERE PROBLEMI
+
                         determinare se il problema e stato generato prima o dopo l'esecuzione (dal chiamante o dal chiamato)
                             se il problema é prima, provare a modificare l'input per sottostare al contratto e dimostrare che non ci sono errori
                             se il problema é dopo 
                                 provare a cambiare l'interno per sottostare al contratto
                                 se non ci sono errori allora il contratto é infranto
                                     notifica all'utente che il contratto é infranto
+                                    FARE UN CONTRATTO ALLA VOLTA, FARE PIU ESECUZIONI E' OK
                                     ricorrere sul prossimo errore della lista per controllare altri eventuali contratti *)
                     raise eval.DynamicTypeError (idx, "The error is in the application of a function")
               | constraintsyntax.AIf (_, exp_then, exp_else, t1, t2, _) => 
@@ -169,10 +223,6 @@ structure contracts : CONTRACTS = struct
                     in 
                         raise eval.DynamicTypeError (idx, "The error is in the generation of the condition of the if expression at line " ^ Int.toString idx ^". The value passed as a condition has type " ^ types.string_of_typ t ^ " but expected a boolean. The value was most likely generated at line " ^ constraintsyntax.print_list n ^ ".")
                     end
-                    (*TODO ALSO NEED TO RETURN THE ELEMENT THAT IS RESPONSIBLE OF GENERATING THE TYPE (MAYBE?
-                    THIS COULD LEAD TO A PROBLEM AS IT WOULD BE DIFFICULT TO RECONGNIZE THE ACTUAL ELEMENT IF IT GOT CHANGED.
-                    MAYBE IT IS JUST BETTER TO PROVE THAT IF CHANGING THE VALUE WITH A BOOLEAN THEN THE ERROR IS AVOIDED
-                    KEEP IN MIND THAT THIS DOES NOT MEAN THAT THERE IS NO OTHER ERROR, BUT JUST THAT THIS SPECIFIC ERROR IS AVOIDED)*)
               | _ => raise UnexpectedExpression e
         end
 
@@ -181,8 +231,8 @@ structure contracts : CONTRACTS = struct
             val (annotated_exp, constraints) = constraintsyntax.generate exp
         in
             eval_ann.run_ann annotated_exp handle
-                eval.DynamicTypeError (idx, _) => handle_dyn_type_error (idx, annotated_exp, constraints, [])
-              | eval_ann.DynamicTypeContractError (idx, msg, lst) => handle_dyn_type_error (idx, annotated_exp, constraints, lst)
+                eval.DynamicTypeError (idx, _) => handle_dyn_type_error (idx, annotated_exp, [], constraints, [])
+              | eval_ann.DynamicTypeContractError (idx, env, msg, lst) => handle_dyn_type_error (idx, annotated_exp, env, constraints, lst)
               | e => raise e
         end
         (*
