@@ -6,7 +6,7 @@ structure eval : EVAL = struct
     exception UnboundVariable of string
     exception DynamicTypeError of int * string
    
-    (* the possible values follow the same types shown in the types module. it also incluedes the error value to express exeptions*)
+    (* the possible values follow the same types shown in the types module.*)
     datatype value =
         VInt of int
       | VBool of bool

@@ -7,7 +7,7 @@ sig
   (* Type environment mapping identifiers to type‐variable refs *)
   type tenv = (string * tvar * tvar) list
 
-  (* Constraints collected during inference *)
+  (* Constraints collected during inference, used mainly for testing *)
   datatype constraint = Coerce of tvar * tvar
   val worklist : constraint list ref
 
@@ -35,10 +35,10 @@ sig
 
   (* Infer annotated AST, returning it plus its inner/outer tvars *)
   val infer    : expressions.exp * tenv -> ann_exp * tvar * tvar
-  (* Run inference on an expression, returning the annotated tree
-     and the list of accumulated constraints *)
+  (* Run inference on an expression, returning the annotated tree and the list of accumulated constraints *)
   val generate : expressions.exp -> ann_exp * constraint list
 
+  (* a function to print a list of integers, used to return the list of instructions that are the cause for a specific type *)
   val print_list : int list -> string
 
   (* a function to convert a tvar to a string representation *)

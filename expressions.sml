@@ -2,7 +2,8 @@
 (* contains definitions for expressions *)
 structure expressions : EXPRESSIONS = struct 
 
-    (* the possible expressions are type literals, variables, lambdas, applications, let, if and cast expressions *)
+    (* the possible expressions are type literals, variables, lambdas, applications, let, if and cast expressions 
+    two more instructions used mainly for testing are the Plus1 and the Negation*)
     datatype exp = 
         EInt of int
       | EBool of bool

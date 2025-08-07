@@ -14,14 +14,14 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
     (* the enviroment that saves the mapping between variable names and their reference (and so their types) *)
     type tenv = (string * tvar * tvar) list
 
-    (* a type to save coercions. these coercions are from an inner to an outer type *)
+    (* a type to save coercions. these coercions are most often from an inner to an outer type *)
     datatype constraint = Coerce of tvar * tvar
 
     (* the worklist is a reference that saves all the coercions found in the program *)
     val worklist : constraint list ref = ref []
 
+    (* a counter to give each expression its unique index number *)
     val expr_counter = ref 1
-
 
     (* a function to create a new tvar *)
     fun fresh_tvar () : tvar =
@@ -72,6 +72,7 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                         end)
             (p, q)
 
+    (* a helper function to handle functions and couples whend executing the unify *)
     and unifyFunCouple (a1: types.typ, b1: types.typ, n1: int list, a2: types.typ, b2: types.typ, n2: int list, text: string) : types.typ * types.typ * int list =
         let 
             val lvar = fresh_tvar ()
@@ -122,6 +123,7 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
         - EPlus1:   the inner type is the same as the outer type, both should be TInt if not there is a dynamic error
         - ENeg:     the inner type is the same as the outer type, both should be TBool if not there is a dynamic error
         - ELam:     the inner type is a function type that goes from the parameter outer type to the body outer type
+                    keep in mind that in some cases it is not possible to infer types for the body, so they are saved as Dyn
         - EApp:     the inner type is the outer type of the body of the function
         - ELet:     the inner type is the outer type of the body of the let expression 
         - EIf:      the inner type is the union of the outer types of both branches of the if statement
@@ -293,6 +295,7 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
             val (tree, _, _) = infer (e, [])
          in (tree, List.rev (!worklist)) end)
 
+    (* prints a list of integers *)
     fun print_list (l: int list) : string =
         case l of 
             [] => ""

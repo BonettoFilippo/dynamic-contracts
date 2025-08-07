@@ -1,15 +1,10 @@
-(*what this module needs to do:
-    - execute the program using the run function
-    - see if any exception arise, in particular dynamic type errors
-    - try to find out who is at fault? maybe use annotated tree in the process
-    - start with first order functions but keep in mind the extension
-    *)
-
 structure contracts : CONTRACTS = struct
 
+    (* two new exceptions to handle edgecases *)
     exception ExpressionNotFound of int
     exception UnexpectedExpression of constraintsyntax.ann_exp
 
+    (* a function that give a annotated expression, returns its index *)
     fun getidx (exp: constraintsyntax.ann_exp) : int =
         case exp of
             constraintsyntax.AInt (_, _, _, idx) => idx
@@ -23,6 +18,8 @@ structure contracts : CONTRACTS = struct
           | constraintsyntax.ALet (_, _, _, _, _, idx) => idx
           | constraintsyntax.ACouple (_, _, _, _, idx) => idx
 
+    (* a helper function to get an expression with a specific index, given the whole program *)
+    (* this function is recursive and will raise an exception if the expression is not found *)
     fun findexp (exp: constraintsyntax.ann_exp, inx: int): constraintsyntax.ann_exp =
         case exp of
             constraintsyntax.AInt (n, _, _, idx) => 
@@ -91,6 +88,19 @@ structure contracts : CONTRACTS = struct
                             findexp (e2, inx)
                     end
 
+    (* 
+        get_actual_typ:
+        Given an annotated expression and an environment, this function recursively determines the actual type of the expression at runtime.
+        - For literals (integers, booleans), it returns the corresponding type.
+        - For variables, it looks up the variable in the environment and returns its type.
+        - For unary and binary operations, it returns the expected result type.
+        - For lambda abstractions, it constructs a function type from the input variable's type (looked up in the environment) to the type of the body.
+            lambdas return the correct type only if it is called by an application
+        - For function applications, it evaluates the function and input, then determines the result type by extending the environment with the input.
+        - For conditionals, it evaluates the condition and returns the type of the then-branch or else-branch accordingly.
+        - For let-bindings, it extends the environment with the bound variable and evaluates the body.
+        - For pairs, it returns a tuple type of the two sub-expressions.
+        The function may raise exceptions if variables are unbound or if dynamic type errors occur *)
     fun get_actual_typ (exp: constraintsyntax.ann_exp, env: eval_ann.ann_env) : types.typ =
         case exp of
             constraintsyntax.AInt (_, _, _, _) => types.TInt
@@ -140,7 +150,15 @@ structure contracts : CONTRACTS = struct
                 in
                     types.TCouple (t1, t2)
                 end
-
+        (*
+        get_new_ann_value_with_type:
+        Given a type, constructs a new annotated expression (ann_exp) that represents a default value of that type.
+        - For TInt, returns an annotated integer expression.
+        - For TBool, returns an annotated boolean expression.
+        - For TFun, returns an annotated lambda expression with a default body of the output type.
+        - For TCouple, returns an annotated pair expression with default values for each component.
+        - For any other type, raises a DynamicTypeError.
+        All generated expressions use fresh URefs and a default index of 0. *)
     fun get_new_ann_value_with_type (inp_type: types.typ) : constraintsyntax.ann_exp =
         case inp_type of
             types.TInt => constraintsyntax.AInt (1, URef.uref (types.TInt, []), URef.uref (types.TInt, []), 0)
@@ -161,8 +179,29 @@ structure contracts : CONTRACTS = struct
                 end
           | _ => raise eval.DynamicTypeError (0, "Not a value")
 
-    fun handle_dyn_type_error (idx: int, exp: constraintsyntax.ann_exp, env: eval_ann.ann_env , con: constraintsyntax.constraint list, exn_lst: exn list) =
+        (*
+        handle_dyn_type_error:
+        This function analyzes dynamic type errors that occur during evaluation of annotated expressions, 
+        and attempts to provide detailed, actionable error messages that help the user identify whether the error originated 
+            - in the caller (the code providing an argument) 
+            - or the callee (the code implementing a function).
 
+        - Given an error index, the full annotated expression, the current environment, the list of constraints, and a list of exceptions, it locates the expression at the error site.
+        - For simple operations like APlus1 and ANeg, it assumes the error is always in the caller (the value passed is of the wrong type), and tries to rerun the operation with a correct value to confirm this. If the error persists, it reports that even a correct value does not fix the problem.
+        - For function applications (AApp), it distinguishes between errors in the input (caller) and errors in the function body (callee):
+            - It computes the expected input and output types using get_actual_typ.
+            - It compares the actual types of the input and output to the expected types.
+            - If the input type is wrong, it tries rerunning the application with a default value of the correct type. If this fixes the error, the blame is on the caller; if not, it may be on the callee.
+            - If the output type is wrong, it tries rerunning with a function that produces the correct output type. If this fixes the error, the blame is on the callee.
+            - If both input and output types are wrong, it tries both fixes and reports accordingly.
+            - If errors are nested (e.g., the input itself causes a dynamic type error), it recursively analyzes the inner error to provide a chain of blame.
+        - For conditionals (AIf), it checks if the condition is of the wrong type, and tries rerunning with a boolean condition to see if the error is resolved.
+        - In all cases, the function constructs error messages that include the line (index) of the error, the actual and expected types, and the origin of the problematic value (using URef indices).
+        - If the error cannot be classified, it raises an UnexpectedExpression exception this final option should never occur.
+
+        The goal is to help the user understand not just where a dynamic type error occurred, but also whether it was caused by the value provided to an operation (caller) or by the implementation of a function (callee), and to suggest how to fix it.
+        Moreover this is the function responsible to handle contracts, generating and enforcing them assigning blame *)
+    fun handle_dyn_type_error (idx: int, exp: constraintsyntax.ann_exp, env: eval_ann.ann_env , con: constraintsyntax.constraint list, exn_lst: exn list) =
         let 
             val e = findexp (exp, idx)
         in 
@@ -320,6 +359,7 @@ structure contracts : CONTRACTS = struct
                     in
                         raise eval.DynamicTypeError (idx, "Even changing both the input and the output of a function generates an error.")
                     end
+
                     (* the function i wrote above (get_actual_typ) ignores any errors. there is a need to check if any errors come up in the input element of the function
                         it should be fairly easy to find them as we can check the idx of the any other error in the list, and check if it is between the execution of the input and the execution of the body *)
                     (* questa sezione di codice deve:
@@ -340,9 +380,6 @@ structure contracts : CONTRACTS = struct
                                     notifica all'utente che il contratto é infranto
                                     FARE UN CONTRATTO ALLA VOLTA, FARE PIU ESECUZIONI E' OK
                                     ricorrere sul prossimo errore della lista per controllare altri eventuali contratti *)
-
-
-
               | constraintsyntax.AIf (_, exp_then, exp_else, t1, t2, _) => 
                     let 
                         val (t, n) = URef.!! t2
@@ -364,6 +401,14 @@ structure contracts : CONTRACTS = struct
               | _ => raise UnexpectedExpression e
         end
 
+    (*
+        execute:
+        This function serves as the main entry point for evaluating a source expression with contract and dynamic type error handling.
+        - It first generates the annotated expression and the list of constraints using constraintsyntax.generate.
+        - It then evaluates the annotated expression using eval_ann.run_ann.
+        - If a DynamicTypeError or DynamicTypeContractError is raised during evaluation, it invokes handle_dyn_type_error to analyze the error, print a detailed and actionable message, and returns a default dynamic value (AVDynamic (AVInt 0)) to allow the program to continue.
+        - Any other exceptions are propagated.
+        This function ensures that all dynamic type errors are caught and explained with as much context as possible, helping the user understand the source and nature of the error, and how to fix it *)
     fun execute (exp: expressions.exp) : eval_ann.ann_value=
         let 
             val (annotated_exp, constraints) = constraintsyntax.generate exp
