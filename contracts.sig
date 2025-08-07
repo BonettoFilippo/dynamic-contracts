@@ -12,6 +12,6 @@ sig
 
     val findexp : constraintsyntax.ann_exp * int -> constraintsyntax.ann_exp
 
-    val handle_dyn_type_error : int * constraintsyntax.ann_exp * eval_ann.ann_env * constraintsyntax.constraint list * exn list -> unit
+    val handle_dyn_type_error : int * constraintsyntax.ann_exp * eval_ann.ann_env * constraintsyntax.constraint list * exn list -> types.typ
 
 end
