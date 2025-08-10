@@ -14,7 +14,7 @@ structure expressions : EXPRESSIONS = struct
       | EApp of exp * exp
       | ELet of string * exp * exp
       | EIf of exp * exp * exp
-      | ECouple of exp * exp
+      | EPair of exp * exp
 
     (* a function that converts expressions into human readable strings *)
     fun string_of_exp (EInt n) = Int.toString n
@@ -32,7 +32,7 @@ structure expressions : EXPRESSIONS = struct
             "(let " ^ x ^ " = " ^ string_of_exp e1 ^ " in " ^ string_of_exp e2 ^ ")"
       | string_of_exp (EIf (e1, e2, e3)) = 
             "(if " ^ string_of_exp e1 ^ " then " ^ string_of_exp e2 ^ " else " ^ string_of_exp e3 ^ ")"
-      | string_of_exp (ECouple (e1, e2)) =
+      | string_of_exp (EPair (e1, e2)) =
             "(" ^ string_of_exp e1 ^ ", " ^ string_of_exp e2 ^ ")"
 
 end;

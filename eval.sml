@@ -13,7 +13,7 @@ structure eval : EVAL = struct
       | VClosure of string * expressions.exp * ((string * value) list)
       | VDynamic of value
       | VNull
-      | VCouple of value * value
+      | VPair of value * value
 
     (* the environment is a list of pairs of strings and values *)
     type env = (string * value) list
@@ -70,8 +70,8 @@ structure eval : EVAL = struct
                 in
                     eval ((x, v1) :: env) e2
                 end
-          | expressions.ECouple (e1, e2) =>
-                VCouple (eval env e1, eval env e2)
+          | expressions.EPair (e1, e2) =>
+                VPair (eval env e1, eval env e2)
 
     (* convert a value to its type, used for type checking and coercions *)
     fun value_to_type (v: value) : types.typ =
@@ -90,7 +90,7 @@ structure eval : EVAL = struct
                 end
           | VDynamic v => types.TDyn
           | VNull => types.TNull
-          | VCouple (v1, v2) => types.TCouple (value_to_type v1, value_to_type v2)
+          | VPair (v1, v2) => types.TPair (value_to_type v1, value_to_type v2)
 
 
     (* an alias to run the evaluator *)

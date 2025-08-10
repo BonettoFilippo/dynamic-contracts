@@ -11,7 +11,7 @@ signature EVAL = sig
       | VClosure of string * expressions.exp * ((string * value) list)
       | VDynamic of value
       | VNull
-      | VCouple of value * value
+      | VPair of value * value
 
     (* the environment is a list of pairs of strings and values *)
     type env = (string * value) list

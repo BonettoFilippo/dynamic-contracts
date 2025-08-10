@@ -7,7 +7,7 @@ sig
       | TDyn
       | TNull
       | TFun of typ * typ
-      | TCouple of typ * typ
+      | TPair of typ * typ
 
     (* a function that converts type into human readable strings *)
     val string_of_typ : typ -> string

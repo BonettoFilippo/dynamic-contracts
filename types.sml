@@ -10,7 +10,7 @@ struct
 	  | TDyn
 	  | TNull
 	  | TFun of typ * typ
-	  | TCouple of typ * typ
+	  | TPair of typ * typ
 
 	(* a function that converts types into human readable strings *)
     fun string_of_typ TInt = "int"
@@ -18,5 +18,5 @@ struct
       | string_of_typ TDyn = "dyn"
       | string_of_typ TNull = "null"
       | string_of_typ (TFun (t1, t2)) = "(" ^ string_of_typ t1 ^ " -> " ^ string_of_typ t2 ^ ")"
-	  | string_of_typ (TCouple (t1, t2)) = "(" ^ string_of_typ t1 ^ ", " ^ string_of_typ t2 ^ ")"
+	  | string_of_typ (TPair (t1, t2)) = "(" ^ string_of_typ t1 ^ ", " ^ string_of_typ t2 ^ ")"
 end;

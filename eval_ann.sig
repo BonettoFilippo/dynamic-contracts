@@ -8,7 +8,7 @@ signature EVAL_ANN = sig
           | AVClosure of string * constraintsyntax.ann_exp * ((string * ann_value) list)
           | AVDynamic of ann_value
           | AVNull
-          | AVCouple of ann_value * ann_value
+          | AVPair of ann_value * ann_value
 
     (* the environment is a list of pairs of strings and annotated values *)
     type ann_env = (string * ann_value) list

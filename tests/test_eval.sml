@@ -7,7 +7,7 @@ fun string_of_value (VInt n) = Int.toString n
   | string_of_value (VClosure (_, _, _, _)) = "<closure>"
   | string_of_value (VDynamic v) = "Dynamic(" ^ string_of_value v ^ ")"
   | string_of_value (VError msg) = "Error(" ^ msg ^ ")"
-  | string_of_value (VCouple (v1, v2)) = "(" ^ string_of_value v1 ^ ", " ^ string_of_value v2 ^ ")"
+  | string_of_value (VPair (v1, v2)) = "(" ^ string_of_value v1 ^ ", " ^ string_of_value v2 ^ ")"
 
 (* Test helper that prints a description and then the evaluated value *)
 fun test (desc: string) (e: exp) =
@@ -73,13 +73,13 @@ fun test_eval () =
       	(* Test cast (stub implementation) *)
       	val _ = test "Test cast (stub)" (ECast (EInt 7, TInt))
     
-		(* Test couple literal:
-       For example, a couple containing 3 and false *)
-    val _ = test "Test couple literal" (ECouple (EInt 3, EBool false))
+		(* Test Pair literal:
+       For example, a Pair containing 3 and false *)
+    val _ = test "Test Pair literal" (EPair (EInt 3, EBool false))
     
-    (* Test nested couple:
+    (* Test nested Pair:
        For instance, representing a triple as (3, (false, 7)) *)
-    val _ = test "Test nested couple" (ECouple (EInt 3, ECouple (EBool false, EInt 7)))
+    val _ = test "Test nested Pair" (EPair (EInt 3, EPair (EBool false, EInt 7)))
 	in
   		()
     end

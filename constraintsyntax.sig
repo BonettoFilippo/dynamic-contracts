@@ -31,7 +31,7 @@ sig
     | AApp    of ann_exp * ann_exp               * tvar * tvar * int
     | ALet    of string * ann_exp * ann_exp      * tvar * tvar * int
     | AIf     of ann_exp * ann_exp * ann_exp     * tvar * tvar * int
-    | ACouple of ann_exp * ann_exp               * tvar * tvar * int
+    | APair of ann_exp * ann_exp               * tvar * tvar * int
 
   (* Infer annotated AST, returning it plus its inner/outer tvars *)
   val infer    : expressions.exp * tenv -> ann_exp * tvar * tvar

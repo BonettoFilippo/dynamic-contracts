@@ -104,13 +104,13 @@ val _ =
 
 val _ =
     let 
-        val a = U.uref (SOME (TCouple (TInt, TBool)))
-        val b = U.uref (SOME (TCouple (TInt, TInt)))
+        val a = U.uref (SOME (TPair (TInt, TBool)))
+        val b = U.uref (SOME (TPair (TInt, TInt)))
         val _ = unifyEq (a, b)
     in
-        assertTrue ("unifyEq should unify two couple types", get a = TCouple (TInt, TDyn));
-        assertTrue ("unifyEq should unify two couple types", get b = TCouple (TInt, TDyn));
-        assertTypeEqual ("unifyEq should return the same couple type for both", get a, get b)
+        assertTrue ("unifyEq should unify two Pair types", get a = TPair (TInt, TDyn));
+        assertTrue ("unifyEq should unify two Pair types", get b = TPair (TInt, TDyn));
+        assertTypeEqual ("unifyEq should return the same Pair type for both", get a, get b)
     end
 
 val _ =
@@ -211,15 +211,15 @@ val _ =
 
 val _ =
     let
-        val (exp, cs) = CS.generate (ECouple (EInt 1, EBool true))
+        val (exp, cs) = CS.generate (EPair (EInt 1, EBool true))
     in
         case exp of
-            ACouple (e1, e2, a, b) => (
-                assertTypeEqual ("ACouple should have the correct type for first element", get a, TCouple (TInt, TBool));
-                assertTypeEqual ("ACouple should have the correct type for second element", get b, TCouple (TInt, TBool));
+            APair (e1, e2, a, b) => (
+                assertTypeEqual ("APair should have the correct type for first element", get a, TPair (TInt, TBool));
+                assertTypeEqual ("APair should have the correct type for second element", get b, TPair (TInt, TBool));
                 assertTrue ("The inner and outer tvars should be different", not (eq (a, b)));
-                assertTrue ("Constraints should not be empty for ACouple", length cs = 1))
-          | _ => raise Fail "Expected ACouple expression"
+                assertTrue ("Constraints should not be empty for APair", length cs = 1))
+          | _ => raise Fail "Expected APair expression"
     end
 
 val _ = 
@@ -264,7 +264,7 @@ val _ =
 
 val _ =
     let
-        val (exp, cs) = CS.generate (expressions.ECouple(expressions.EInt 3, expressions.EBool false))
+        val (exp, cs) = CS.generate (expressions.EPair(expressions.EInt 3, expressions.EBool false))
     in
         print  ("Program 5 := " ^ CS.prettyp exp ^ "\n");
         print  ("Coercions: " ^ Int.toString (List.length cs) ^ "\n")
@@ -275,7 +275,7 @@ val _ =
         val (exp, cs) = CS.generate (expressions.ELet("f",
                         (* binding = λx:Int. ⟨x, x⟩ *)
                         expressions.ELam("x", types.TInt,
-                        expressions.ECouple(expressions.EVar "x", expressions.EVar "x")
+                        expressions.EPair(expressions.EVar "x", expressions.EVar "x")
                         ),
                         (* body = f 2 *)
                         expressions.EApp(expressions.EVar "f", expressions.EBool true)))

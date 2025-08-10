@@ -12,7 +12,7 @@ signature EXPRESSIONS = sig
       | EApp of exp * exp
       | ELet of string * exp * exp
       | EIf of exp * exp * exp
-      | ECouple of exp * exp
+      | EPair of exp * exp
 
     (* a function that converts expressions into human readable strings *)
     val string_of_exp : exp -> string

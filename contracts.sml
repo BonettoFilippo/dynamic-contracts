@@ -16,7 +16,7 @@ structure contracts : CONTRACTS = struct
           | constraintsyntax.AApp (_, _, _, _, idx) => idx
           | constraintsyntax.AIf (_, _, _, _, _, idx) => idx
           | constraintsyntax.ALet (_, _, _, _, _, idx) => idx
-          | constraintsyntax.ACouple (_, _, _, _, idx) => idx
+          | constraintsyntax.APair (_, _, _, _, idx) => idx
 
     (* a helper function to get an expression with a specific index, given the whole program *)
     (* this function is recursive and will raise an exception if the expression is not found *)
@@ -75,7 +75,7 @@ structure contracts : CONTRACTS = struct
                         else
                             findexp (e_else, inx)
                     end
-          | constraintsyntax.ACouple (e1, e2, _, _, idx) =>
+          | constraintsyntax.APair (e1, e2, _, _, idx) =>
                 if idx = inx then exp else
                     let 
                         val idx2 = getidx e2
@@ -143,12 +143,12 @@ structure contracts : CONTRACTS = struct
                             get_actual_typ (e, env)
                 end
           | constraintsyntax.ALet (s, e1, e2, _, _, _) => get_actual_typ (e2, ((s, eval_ann.run_ann e1) :: env))
-          | constraintsyntax.ACouple (e1, e2, _, _, _) => 
+          | constraintsyntax.APair (e1, e2, _, _, _) => 
                 let 
                     val t1 = get_actual_typ (e1, env)
                     val t2 = get_actual_typ (e2, env)
                 in
-                    types.TCouple (t1, t2)
+                    types.TPair (t1, t2)
                 end
         (*
         get_new_ann_value_with_type:
@@ -156,7 +156,7 @@ structure contracts : CONTRACTS = struct
         - For TInt, returns an annotated integer expression.
         - For TBool, returns an annotated boolean expression.
         - For TFun, returns an annotated lambda expression with a default body of the output type.
-        - For TCouple, returns an annotated pair expression with default values for each component.
+        - For TPair, returns an annotated pair expression with default values for each component.
         - For any other type, raises a DynamicTypeError.
         All generated expressions use fresh URefs and a default index of 0. *)
     fun get_new_ann_value_with_type (inp_type: types.typ) : constraintsyntax.ann_exp =
@@ -170,12 +170,12 @@ structure contracts : CONTRACTS = struct
                 in
                     constraintsyntax.ALam ("x", get_new_ann_value_with_type t2, tv1, tv2, 0)
                 end
-          | types.TCouple (t1, t2) =>
+          | types.TPair (t1, t2) =>
                 let 
                     val tv1 = URef.uref (t1, [])
                     val tv2 = URef.uref (t2, [])
                 in
-                    constraintsyntax.ACouple (get_new_ann_value_with_type t1, get_new_ann_value_with_type t2, tv1, tv2, 0)
+                    constraintsyntax.APair (get_new_ann_value_with_type t1, get_new_ann_value_with_type t2, tv1, tv2, 0)
                 end
           | _ => raise eval.DynamicTypeError (0, "Not a value")
 
@@ -285,7 +285,7 @@ structure contracts : CONTRACTS = struct
                                     let val (t, _) = URef.!! t2 in t end
                               | constraintsyntax.AIf (_, _, _, _, t2, _) => 
                                     let val (t, _) = URef.!! t2 in t end
-                              | constraintsyntax.ACouple (_, _, _, t2, _) => 
+                              | constraintsyntax.APair (_, _, _, t2, _) => 
                                     let val (t, _) = URef.!! t2 in t end)
                         val (t, _) = URef.!! t1
                         val inp_diff = inp_type <> v_type

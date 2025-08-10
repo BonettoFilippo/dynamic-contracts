@@ -9,7 +9,7 @@ structure eval_ann : EVAL_ANN = struct
           | AVClosure of string * constraintsyntax.ann_exp * ((string * ann_value) list)
           | AVDynamic of ann_value
           | AVNull
-          | AVCouple of ann_value * ann_value
+          | AVPair of ann_value * ann_value
 
     (* the environment is a list of pairs of strings and annotated values *)
     type ann_env = (string * ann_value) list
@@ -87,8 +87,8 @@ structure eval_ann : EVAL_ANN = struct
                 in
                     eval_ann ((x, v1) :: env) e2
                 end
-          | constraintsyntax.ACouple (e1, e2, _, _, _) =>
-                AVCouple (eval_ann env e1, eval_ann env e2)
+          | constraintsyntax.APair (e1, e2, _, _, _) =>
+                AVPair (eval_ann env e1, eval_ann env e2)
 
     
     (* convert a annotated value to its type, used for type checking and coercions *)
@@ -108,7 +108,7 @@ structure eval_ann : EVAL_ANN = struct
                 end
           | AVDynamic v => types.TDyn
           | AVNull => types.TNull
-          | AVCouple (v1, v2) => types.TCouple (ann_value_to_type v1, ann_value_to_type v2)
+          | AVPair (v1, v2) => types.TPair (ann_value_to_type v1, ann_value_to_type v2)
 
     (* an alias to run the evaluator *)
     fun run_ann e = eval_ann [] e

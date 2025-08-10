@@ -35,7 +35,7 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
     (* a function that defines how the union between tvars should be executed *)
     (* it has different cases:
         - a function checks the input and the output type of a function separately
-        - a couple behaves similar to the function but in a different syntax 
+        - a Pair behaves similar to the function but in a different syntax 
         - all other case are treated very simply:
             - if we have two values if they are the same the no unification is needed
             - if they are not the same we need to convert both to dynamic
@@ -47,15 +47,15 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                 case (pc, qc) of
                     (((types.TFun (a1, b1)), n1), ((types.TFun (a2, b2)), n2)) =>
                         let 
-                            val (dvart, cvart, finaln) = unifyFunCouple (a1, b1, n1, a2, b2, n2, "functions")
+                            val (dvart, cvart, finaln) = unifyFunPair (a1, b1, n1, a2, b2, n2, "functions")
                         in
                             ((types.TFun (dvart, cvart)), finaln)
                         end
-                  | (((types.TCouple (a1, b1)), n1), ((types.TCouple (a2, b2)), n2)) =>
+                  | (((types.TPair (a1, b1)), n1), ((types.TPair (a2, b2)), n2)) =>
                         let 
-                            val (lvart, rvart, finaln) = unifyFunCouple (a1, b1, n1, a2, b2, n2, "couples")
+                            val (lvart, rvart, finaln) = unifyFunPair (a1, b1, n1, a2, b2, n2, "Pairs")
                         in
-                            ((types.TCouple (lvart, rvart)), finaln)
+                            ((types.TPair (lvart, rvart)), finaln)
                         end
                   | ((types.TNull, _), (types.TNull, _)) => (types.TNull, [])
                   | ((types.TNull, _), (q, n)) => (q, n)
@@ -72,8 +72,8 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                         end)
             (p, q)
 
-    (* a helper function to handle functions and couples whend executing the unify *)
-    and unifyFunCouple (a1: types.typ, b1: types.typ, n1: int list, a2: types.typ, b2: types.typ, n2: int list, text: string) : types.typ * types.typ * int list =
+    (* a helper function to handle functions and Pairs whend executing the unify *)
+    and unifyFunPair (a1: types.typ, b1: types.typ, n1: int list, a2: types.typ, b2: types.typ, n2: int list, text: string) : types.typ * types.typ * int list =
         let 
             val lvar = fresh_tvar ()
             val rvar = fresh_tvar ()
@@ -113,7 +113,7 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
       | AApp of ann_exp * ann_exp * tvar * tvar * int
       | ALet of string * ann_exp * ann_exp * tvar * tvar * int
       | AIf of ann_exp * ann_exp * ann_exp * tvar * tvar * int
-      | ACouple of ann_exp * ann_exp * tvar * tvar * int
+      | APair of ann_exp * ann_exp * tvar * tvar * int
 
     (* this functions infers from the context and the syntax subtrees the inner and outer types of each node *)
     (* this follow some rules:
@@ -128,7 +128,7 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
         - ELet:     the inner type is the outer type of the body of the let expression 
         - EIf:      the inner type is the union of the outer types of both branches of the if statement
         - ECast:    the inner type is the union between the outer type of the expression and the cast type
-        - ECouple:  the inner type is a couple of the outer types of both expressions
+        - EPair:  the inner type is a Pair of the outer types of both expressions
      *)
     (* when not mentioning the outer type that means that if not already initialized is a copy of the inner type (a copy, not the same reference)*)
     fun infer (e: expressions.exp, tenv: tenv) : ann_exp * tvar * tvar =
@@ -271,7 +271,7 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                     val _ = add_coerce (a, b)
                 in
                     (AIf (cond', e_then', e_else', a, b, e), a, b) end
-          | expressions.ECouple (e1, e2) =>
+          | expressions.EPair (e1, e2) =>
                 let
                     val a = fresh_tvar ()
                     val b = fresh_tvar ()
@@ -282,11 +282,11 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                     val (e1', inner_e1, outer_e1) = infer (e1, tenv)
                     val (e2', inner_e2, outer_e2) = infer (e2, tenv)
 
-                    val _ = unifyEq (a, U.uref ((types.TCouple (getTyp outer_e1, getTyp outer_e2)), []))      
+                    val _ = unifyEq (a, U.uref ((types.TPair (getTyp outer_e1, getTyp outer_e2)), []))      
 
                     val _ = add_coerce (a, b)
                 in
-                    (ACouple (e1', e2', a, b, e), a, b) end
+                    (APair (e1', e2', a, b, e), a, b) end
 
     (* runs the annotation on an empty worklist *)
     fun generate (e: expressions.exp) : ann_exp * constraint list =
@@ -355,12 +355,12 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                 in
                     "(if " ^ cond_str ^ " then " ^ then_str ^ " else " ^ else_str ^ ") : \n " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2  ^ "\n"
                 end
-          | ACouple (e1, e2, t1, t2, _) =>
+          | APair (e1, e2, t1, t2, _) =>
                 let
                     val e1_str = prettyp e1
                     val e2_str = prettyp e2
                 in
-                    "(couple " ^ e1_str ^ ", " ^ e2_str ^ ") : " ^ string_of_tvar t2  ^ "\n"
+                    "(Pair " ^ e1_str ^ ", " ^ e2_str ^ ") : " ^ string_of_tvar t2  ^ "\n"
                 end
     
     (* pretty preting function for the worklist *)
