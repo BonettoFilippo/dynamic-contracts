@@ -4,6 +4,24 @@ structure contracts : CONTRACTS = struct
     exception ExpressionNotFound of int
     exception UnexpectedExpression of constraintsyntax.ann_exp
 
+    fun list_in_range (lst: int list, idx: int, idx2: int) : bool =
+        case lst of
+            [] => false
+          | h :: t => if h >= idx andalso h <= idx2 then true else list_in_range (t, idx, idx2)
+        
+    fun get_outer_type (exp: constraintsyntax.ann_exp) : (types.typ * int list) =
+        case exp of
+            constraintsyntax.AInt (_, _, tvar, _) => URef.!! tvar
+          | constraintsyntax.ABool (_, _, tvar, _) => URef.!! tvar
+          | constraintsyntax.AVar (_, _, tvar, _) => URef.!! tvar
+          | constraintsyntax.APlus1 (_, _, tvar, _) => URef.!! tvar
+          | constraintsyntax.ANeg (_, _, tvar, _) => URef.!! tvar
+          | constraintsyntax.ALam (_, _, _, tvar, _) => URef.!! tvar
+          | constraintsyntax.AApp (_, _, _, tvar, _) => URef.!! tvar
+          | constraintsyntax.ALet (_, _, _, _, tvar, _) => URef.!! tvar
+          | constraintsyntax.AIf (_, _, _, _, tvar, _) => URef.!! tvar
+          | constraintsyntax.APair (_, _, _, tvar, _) => URef.!! tvar
+
     (* a function that give a annotated expression, returns its index *)
     fun getidx (exp: constraintsyntax.ann_exp) : int =
         case exp of
@@ -129,8 +147,11 @@ structure contracts : CONTRACTS = struct
                         eval_ann.AVClosure (x, _, _) => x
                       | _ => raise eval.DynamicTypeError (i, "Expected a function for application"))
                     val inp' = eval_ann.eval_ann env inp
+                    val ft = get_actual_typ (f, ((n, inp') :: env))
                 in
-                    get_actual_typ (f, ((n, inp') :: env))
+                    case ft of
+                        types.TFun (t1, t2) => t2
+                      | _ => raise eval.DynamicTypeError (i, "Expected a function type for application, got " ^ types.string_of_typ ft ^ ".")
                 end
           | constraintsyntax.AIf (c, t, e, _, _, _) => 
                 let
@@ -257,36 +278,38 @@ structure contracts : CONTRACTS = struct
                                   | e => raise e)
                         val out_type = get_actual_typ (constraintsyntax.AApp (f, v, t1, t2, i), env) handle 
                             eval.DynamicTypeError (id, _) => (
-                                handle_dyn_type_error (id, v, env, con, exn_lst) handle
+                                handle_dyn_type_error (id, f, env, con, exn_lst) handle
                                     eval.DynamicTypeError (id', msg) => 
-                                        raise eval.DynamicTypeError (id, "There is a problem within the function that is being applied. This means that there is a problem in the callee. To fix this problem follow the instructions in the error message: " ^ msg ^ ".")
+                                        let 
+                                            val e = findexp (f, id')
+                                            val (_, n) = get_outer_type e
+                                            val idx = getidx v
+                                        in
+                                            if 
+                                                list_in_range (n, i, idx)
+                                            then
+                                                types.TNull
+                                            else
+                                                raise eval.DynamicTypeError (id, "There is a problem within the function that is being applied. This means that there is a problem in the callee. To fix this problem follow the instructions in the error message: " ^ msg ^ ".")
+                                        end
                                   | e => raise e)
                           | eval_ann.DynamicTypeContractError (id, _, _, _) => (
-                                handle_dyn_type_error (id, v, env, con, exn_lst) handle
+                                handle_dyn_type_error (id, f, env, con, exn_lst) handle
                                     eval_ann.DynamicTypeContractError (id', _, msg', _) => 
-                                        raise eval.DynamicTypeError (id, "There is a problem within the function that is being applied. This means that there is a problem in the callee. To fix this problem follow the instructions in the error message: " ^ msg' ^ ".")
+                                        let  
+                                            val e = findexp (f, id')
+                                            val (_, n) = get_outer_type e
+                                            val idx = getidx v
+                                        in  
+                                            if
+                                                list_in_range (n, i, idx)
+                                            then
+                                                types.TNull
+                                            else
+                                                raise eval.DynamicTypeError (id, "There is a problem within the function that is being applied. This means that there is a problem in the callee. To fix this problem follow the instructions in the error message: " ^ msg' ^ ".")
+                                        end
                                   | e => raise e)
-                        val v_type = (case v of
-                                constraintsyntax.AInt (_, _, t2, _) => 
-                                    let val (t, _) = URef.!! t2 in t end
-                              | constraintsyntax.ABool (_, _, t2, _) => 
-                                    let val (t, _) = URef.!! t2 in t end
-                              | constraintsyntax.AVar (_, _, t2, _) => 
-                                    let val (t, _) = URef.!! t2 in t end
-                              | constraintsyntax.APlus1 (_, _, t2, _) => 
-                                    let val (t, _) = URef.!! t2 in t end
-                              | constraintsyntax.ANeg (_, _, t2, _) => 
-                                    let val (t, _) = URef.!! t2 in t end
-                              | constraintsyntax.ALam (_, _, _, t2, _) => 
-                                    let val (t, _) = URef.!! t2 in t end
-                              | constraintsyntax.AApp (_, _, _, t2, _) => 
-                                    let val (t, _) = URef.!! t2 in t end
-                              | constraintsyntax.ALet (_, _, _, _, t2, _) => 
-                                    let val (t, _) = URef.!! t2 in t end
-                              | constraintsyntax.AIf (_, _, _, _, t2, _) => 
-                                    let val (t, _) = URef.!! t2 in t end
-                              | constraintsyntax.APair (_, _, _, t2, _) => 
-                                    let val (t, _) = URef.!! t2 in t end)
+                        val (v_type, _) = get_outer_type v
                         val (t, _) = URef.!! t1
                         val inp_diff = inp_type <> v_type
                         val res_diff = out_type <> t
@@ -294,70 +317,70 @@ structure contracts : CONTRACTS = struct
                         val _ = 
                             (if inp_diff andalso res_diff then
                                 let
-                                    val new_inp = get_new_ann_value_with_type (inp_type)
-                                    val e' = constraintsyntax.AApp (f, new_inp, t1, t2, i)
-                                    val result = eval_ann.run_ann e' handle
+                                    val new_out = get_new_ann_value_with_type ((types.TFun (inp_type, out_type)))
+                                    val e' = constraintsyntax.AApp (new_out, v, t1, t2, i)
+                                    val result = eval_ann.eval_ann env e' handle
                                         eval.DynamicTypeError (id, _) => 
                                             if 
                                                 id = idx 
                                             then
-                                                let
-                                                    val new_out = get_new_ann_value_with_type (types.TFun (inp_type, out_type))
-                                                    val e' = constraintsyntax.AApp (new_out, v, t1, t2, i)
-                                                    val result = eval_ann.run_ann e' handle
-                                                        eval.DynamicTypeError (id, _) => 
-                                                            if 
-                                                                id = idx 
-                                                            then
-                                                                raise eval.DynamicTypeError (id, "Even changing the function to a function that outputs a value to a value of type " ^ types.string_of_typ out_type ^ "and the input type to " ^ types.string_of_typ inp_type ^ " doesn't solve the error.")
-                                                            else 
-                                                                raise eval.DynamicTypeError (id, "Changing the function to a function that outputs a value of type " ^ types.string_of_typ out_type ^ " solves the error, but generates a new one at line " ^ Int.toString id ^ ".")
-                                                    | e => raise eval.DynamicTypeError (idx, "Changing the the function to a function that outputs a value of type " ^ types.string_of_typ out_type ^ " solves the error, but generates a new one.")
-                                                in
-                                                    raise eval.DynamicTypeError (idx, "The error is in the callee of the application of a function at line " ^ Int.toString idx ^ ". The output value has type " ^ types.string_of_typ t ^ " but expected " ^ types.string_of_typ out_type ^ ".")
-                                                end
+                                                raise eval.DynamicTypeError (id, "Modifying the function to function that follows the contract generates the exact same error. This means that the problem is in the caller of the application.")
                                             else 
-                                                raise eval.DynamicTypeError (id, "Changing the input value to a value of type " ^ types.string_of_typ inp_type ^ " solves the error, but generates a new one at line " ^ Int.toString id ^ ".")
-                                    | e => raise eval.DynamicTypeError (idx, "Changing the input value to a value of type " ^ types.string_of_typ inp_type ^ " solves the error, but generates a new one.")
+                                                raise eval.DynamicTypeError (id, "The error was solved by changing the function to a function that follows the contract. A new Dynamic type error was generated, meaning that the caller is still at fault for breaking the contract")
+                                    | e => raise eval.DynamicTypeError (idx, "The error was solved by changing the function to a function that follows the contract. A new error was generated, meaning that the caller is still at fault for breaking the contract")
                                 in
-                                    raise eval.DynamicTypeError (idx, "The error is either in the caller of the application or in the callee of a function at line " ^ Int.toString idx ^ ". The input value has type " ^ types.string_of_typ v_type ^ " but expected " ^ types.string_of_typ inp_type ^ ".")
+                                    let 
+                                        val new_in = get_new_ann_value_with_type (inp_type)
+                                        val e' = constraintsyntax.AApp (f, new_in, t1, t2, i)
+                                        val result = eval_ann.eval_ann env e' handle
+                                            eval.DynamicTypeError (id, _) => 
+                                                if 
+                                                    id = idx 
+                                                then
+                                                    raise eval.DynamicTypeError (id, "Modifying the input to an input that follows the contract generates the exact same error. This means that the problem is in the callee of the application.")
+                                                else 
+                                                    raise eval.DynamicTypeError (id, "The error was solved by changing the input to an input that follows the contract. A new Dynamic type error was generated, meaning that the callee is still at fault for breaking the contract")
+                                        | e => raise eval.DynamicTypeError (idx, "The error was solved by changing the input to an input that follows the contract. A new error was generated, meaning that the callee is still at fault for breaking the contract")
+                                    in
+                                        raise eval.DynamicTypeError (idx, "The error was solved by changing the input to an input that follows the contract. This leads to a contradictory situation, as the blame would be on the caller, but the changing the caller so that it follows the contract didn't solve the error.")
+                                    end 
                                 end
                             else if inp_diff then
                                 let
-                                    val new_inp = get_new_ann_value_with_type (inp_type)
-                                    val e' = constraintsyntax.AApp (f, new_inp, t1, t2, i)
-                                    val result = eval_ann.run_ann e' handle
+                                    val new_out = get_new_ann_value_with_type ((types.TFun (inp_type, out_type)))
+                                    val e' = constraintsyntax.AApp (new_out, v, t1, t2, i)
+                                    val result = eval_ann.eval_ann env e' handle
                                         eval.DynamicTypeError (id, _) => 
                                             if 
                                                 id = idx 
                                             then
-                                                raise eval.DynamicTypeError (id, "Even changing the input value to a value of type " ^ types.string_of_typ inp_type ^ " doesn't solve the error.")
+                                                raise eval.DynamicTypeError (id, "Modifying the function to function that follows the contract generates the exact same error. This means that the problem is in the caller of the application.")
                                             else 
-                                                raise eval.DynamicTypeError (id, "Changing the input value to a value of type " ^ types.string_of_typ inp_type ^ " solves the error, but generates a new one at line " ^ Int.toString id ^ ".")
-                                    | e => raise eval.DynamicTypeError (idx, "Changing the input value to a value of type " ^ types.string_of_typ inp_type ^ " solves the error, but generates a new one.")
+                                                raise eval.DynamicTypeError (id, "The error was solved by changing the function to a function that follows the contract. A new Dynamic type error was generated, meaning that the caller is still at fault for breaking the contract")
+                                    | e => raise eval.DynamicTypeError (idx, "The error was solved by changing the function to a function that follows the contract. A new error was generated, meaning that the caller is still at fault for breaking the contract")
                                 in
-                                    raise eval.DynamicTypeError (idx, "The error is in the caller of the application of a function at line " ^ Int.toString idx ^ ". The input value has type " ^ types.string_of_typ v_type ^ " but expected " ^ types.string_of_typ inp_type ^ ".")
+                                    raise eval.DynamicTypeError (idx, "The error was solved by changing the function to a function that follows the contract. This leads to a contradictory situation, as the blame would be on the callee, but the callee follows the contract, otherwise there would also be a difference in the output type of the function.")
                                 end
                             else if res_diff then
                                 let 
-                                    val new_out = get_new_ann_value_with_type (types.TFun (inp_type, out_type))
-                                    val e' = constraintsyntax.AApp (new_out, v, t1, t2, i)
-                                    val result = eval_ann.run_ann e' handle
+                                    val new_in = get_new_ann_value_with_type (inp_type)
+                                    val e' = constraintsyntax.AApp (f, new_in, t1, t2, i)
+                                    val result = eval_ann.eval_ann env e' handle
                                         eval.DynamicTypeError (id, _) => 
                                             if 
                                                 id = idx 
                                             then
-                                                raise eval.DynamicTypeError (id, "Even changing the function to a function that outputs a value to a value of type " ^ types.string_of_typ out_type ^ " doesn't solve the error.")
+                                                raise eval.DynamicTypeError (id, "Modifying the input to an input that follows the contract generates the exact same error. This means that the problem is in the callee of the application.")
                                             else 
-                                                raise eval.DynamicTypeError (id, "Changing the function to a function that outputs a value of type " ^ types.string_of_typ out_type ^ " solves the error, but generates a new one at line " ^ Int.toString id ^ ".")
-                                    | e => raise eval.DynamicTypeError (idx, "Changing the the function to a function that outputs a value of type " ^ types.string_of_typ out_type ^ " solves the error, but generates a new one.")
+                                                raise eval.DynamicTypeError (id, "The error was solved by changing the input to an input that follows the contract. A new Dynamic type error was generated, meaning that the callee is still at fault for breaking the contract")
+                                    | e => raise eval.DynamicTypeError (idx, "The error was solved by changing the input to an input that follows the contract. A new error was generated, meaning that the callee is still at fault for breaking the contract")
                                 in
-                                    raise eval.DynamicTypeError (idx, "The error is in the callee of the application of a function at line " ^ Int.toString idx ^ ". The output value has type " ^ types.string_of_typ t ^ " but expected " ^ types.string_of_typ out_type ^ ".")
+                                    raise eval.DynamicTypeError (idx, "The error was solved by changing the input to an input that follows the contract. This leads to a contradictory situation, as the blame would be on the caller, but the caller follows the contract, otherwise there would also be a difference in the input type of the function.")
                                 end 
                             else 
-                                raise eval.DynamicTypeError (idx, "Even changing both the input and the output of a function generates an error."))
+                                raise eval.DynamicTypeError (idx, "The contract matches the expected type. This is a contraddiction, because if both follow the contract, then no Dynamic type error should be generated."))
                     in
-                        raise eval.DynamicTypeError (idx, "Even changing both the input and the output of a function generates an error.")
+                        raise eval.DynamicTypeError (idx, "No problem was found in the application. This is a contraddiction, because if both follow the contract, then no Dynamic type error should be generated.")
                     end
 
                     (* the function i wrote above (get_actual_typ) ignores any errors. there is a need to check if any errors come up in the input element of the function
