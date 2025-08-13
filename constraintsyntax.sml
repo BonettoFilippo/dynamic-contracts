@@ -302,7 +302,7 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
           | (x::xs) => Int.toString x ^ ", " ^ print_list xs
 
     (* a function to convert a tvar to a string representation *)
-    fun string_of_tvar (v: tvar) : string =
+    fun tvar_to_string (v: tvar) : string =
         let
             val (ty_opt, i) = U.!! v
         in
@@ -312,40 +312,40 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
     (* pretty printing function for annotated expressions *)
     fun prettyp (e: ann_exp) : string =
         case e of
-            AInt (n, t1, t2, _) => Int.toString n ^ " : " ^ string_of_tvar t2 
-          | ABool (b, t1, t2, _) => Bool.toString b ^ " : " ^ string_of_tvar t2 
-          | AVar (v, t1, t2, _) => v ^ " : " ^ string_of_tvar t2  
+            AInt (n, t1, t2, _) => Int.toString n ^ " : " ^ tvar_to_string t2 
+          | ABool (b, t1, t2, _) => Bool.toString b ^ " : " ^ tvar_to_string t2 
+          | AVar (v, t1, t2, _) => v ^ " : " ^ tvar_to_string t2  
           | APlus1 (e1, t1, t2, _) => 
                 let
                     val e1_str = prettyp e1
                 in
-                    "(" ^ e1_str ^ " + 1) : " ^ string_of_tvar t2 ^ "\n"
+                    "(" ^ e1_str ^ " + 1) : " ^ tvar_to_string t2 ^ "\n"
                 end
           | ANeg (e1, t1, t2, _) =>
                 let
                     val e1_str = prettyp e1
                 in
-                    "(!" ^ e1_str ^ ") : " ^ string_of_tvar t2 ^ "\n"
+                    "(!" ^ e1_str ^ ") : " ^ tvar_to_string t2 ^ "\n"
                 end
           | ALam (v, body, t1, t2, _) => 
                 let
                     val body_str = prettyp body
                 in
-                    "(λ" ^ v ^ ". " ^ body_str ^ ")  : \n " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2  ^ "\n"
+                    "(λ" ^ v ^ ". " ^ body_str ^ ")  : \n " ^ tvar_to_string t1 ^ " -> " ^ tvar_to_string t2  ^ "\n"
                 end
           | AApp (e1, e2, t1, t2, _) =>
                 let
                     val e1_str = prettyp e1
                     val e2_str = prettyp e2
                 in
-                    "(" ^ e1_str ^ " " ^ e2_str ^ ") : \n " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2  ^ "\n"
+                    "(" ^ e1_str ^ " " ^ e2_str ^ ") : \n " ^ tvar_to_string t1 ^ " -> " ^ tvar_to_string t2  ^ "\n"
                 end
           | ALet (x, e1, e2, t1, t2, _) =>
                 let
                     val e1_str = prettyp e1
                     val e2_str = prettyp e2
                 in
-                    "(let " ^ x ^ " = " ^ e1_str ^ " in " ^ e2_str ^ ") : \n " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2  ^ "\n"
+                    "(let " ^ x ^ " = " ^ e1_str ^ " in " ^ e2_str ^ ") : \n " ^ tvar_to_string t1 ^ " -> " ^ tvar_to_string t2  ^ "\n"
                 end
           | AIf (cond, e_then, e_else, t1, t2, _) =>
                 let
@@ -353,20 +353,20 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                     val then_str = prettyp e_then
                     val else_str = prettyp e_else
                 in
-                    "(if " ^ cond_str ^ " then " ^ then_str ^ " else " ^ else_str ^ ") : \n " ^ string_of_tvar t1 ^ " -> " ^ string_of_tvar t2  ^ "\n"
+                    "(if " ^ cond_str ^ " then " ^ then_str ^ " else " ^ else_str ^ ") : \n " ^ tvar_to_string t1 ^ " -> " ^ tvar_to_string t2  ^ "\n"
                 end
           | APair (e1, e2, t1, t2, _) =>
                 let
                     val e1_str = prettyp e1
                     val e2_str = prettyp e2
                 in
-                    "(Pair " ^ e1_str ^ ", " ^ e2_str ^ ") : " ^ string_of_tvar t2  ^ "\n"
+                    "(Pair " ^ e1_str ^ ", " ^ e2_str ^ ") : " ^ tvar_to_string t2  ^ "\n"
                 end
     
     (* pretty preting function for the worklist *)
     fun prettyp_worklist () : string =
         let
-            val constraints = List.map (fn Coerce (p, q) => "Coerce: " ^ string_of_tvar p ^ " -> " ^ string_of_tvar q) (!worklist)
+            val constraints = List.map (fn Coerce (p, q) => "Coerce: " ^ tvar_to_string p ^ " -> " ^ tvar_to_string q) (!worklist)
         in
             String.concatWith "\n" constraints
         end

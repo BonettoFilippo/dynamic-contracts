@@ -15,5 +15,5 @@ signature EXPRESSIONS = sig
       | EPair of exp * exp
 
     (* a function that converts expressions into human readable strings *)
-    val string_of_exp : exp -> string
+    val exp_to_string : exp -> string
 end;

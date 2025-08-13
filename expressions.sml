@@ -17,22 +17,22 @@ structure expressions : EXPRESSIONS = struct
       | EPair of exp * exp
 
     (* a function that converts expressions into human readable strings *)
-    fun string_of_exp (EInt n) = Int.toString n
-      | string_of_exp (EBool b) = Bool.toString b
-      | string_of_exp (EVar x) = x 
-      | string_of_exp (EPlus1 e) = 
-            "(" ^ string_of_exp e ^ " + 1)"
-      | string_of_exp (ENeg e) =
-            "(!" ^ string_of_exp e ^ ")"
-      | string_of_exp (ELam (x, e)) = 
-            "(fun " ^ x ^ " => " ^ string_of_exp e ^ ")"
-      | string_of_exp (EApp (e1, e2)) = 
-	  		"(" ^ string_of_exp e1 ^ " " ^ string_of_exp e2 ^ ")"
-      | string_of_exp (ELet (x, e1, e2)) = 
-            "(let " ^ x ^ " = " ^ string_of_exp e1 ^ " in " ^ string_of_exp e2 ^ ")"
-      | string_of_exp (EIf (e1, e2, e3)) = 
-            "(if " ^ string_of_exp e1 ^ " then " ^ string_of_exp e2 ^ " else " ^ string_of_exp e3 ^ ")"
-      | string_of_exp (EPair (e1, e2)) =
-            "(" ^ string_of_exp e1 ^ ", " ^ string_of_exp e2 ^ ")"
+    fun exp_to_string (EInt n) = Int.toString n
+      | exp_to_string (EBool b) = Bool.toString b
+      | exp_to_string (EVar x) = x 
+      | exp_to_string (EPlus1 e) = 
+            "(" ^ exp_to_string e ^ " + 1)"
+      | exp_to_string (ENeg e) =
+            "(!" ^ exp_to_string e ^ ")"
+      | exp_to_string (ELam (x, e)) = 
+            "(fun " ^ x ^ " => " ^ exp_to_string e ^ ")"
+      | exp_to_string (EApp (e1, e2)) = 
+	  		"(" ^ exp_to_string e1 ^ " " ^ exp_to_string e2 ^ ")"
+      | exp_to_string (ELet (x, e1, e2)) = 
+            "(let " ^ x ^ " = " ^ exp_to_string e1 ^ " in " ^ exp_to_string e2 ^ ")"
+      | exp_to_string (EIf (e1, e2, e3)) = 
+            "(if " ^ exp_to_string e1 ^ " then " ^ exp_to_string e2 ^ " else " ^ exp_to_string e3 ^ ")"
+      | exp_to_string (EPair (e1, e2)) =
+            "(" ^ exp_to_string e1 ^ ", " ^ exp_to_string e2 ^ ")"
 
 end;
