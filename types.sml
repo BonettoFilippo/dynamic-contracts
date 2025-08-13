@@ -13,10 +13,10 @@ struct
 	  | TPair of typ * typ
 
 	(* a function that converts types into human readable strings *)
-    fun string_of_typ TInt = "int"
-      | string_of_typ TBool = "bool"
-      | string_of_typ TDyn = "dyn"
-      | string_of_typ TNull = "null"
-      | string_of_typ (TFun (t1, t2)) = "(" ^ string_of_typ t1 ^ " -> " ^ string_of_typ t2 ^ ")"
-	  | string_of_typ (TPair (t1, t2)) = "(" ^ string_of_typ t1 ^ ", " ^ string_of_typ t2 ^ ")"
+    fun typ_to_string TInt = "int"
+      | typ_to_string TBool = "bool"
+      | typ_to_string TDyn = "dyn"
+      | typ_to_string TNull = "null"
+      | typ_to_string (TFun (t1, t2)) = "(" ^ typ_to_string t1 ^ " -> " ^ typ_to_string t2 ^ ")"
+	  | typ_to_string (TPair (t1, t2)) = "(" ^ typ_to_string t1 ^ ", " ^ typ_to_string t2 ^ ")"
 end;

@@ -1,87 +1,89 @@
 open eval
 open expressions
-open types
-(* A simple function to convert values to strings for testing *)
-fun string_of_value (VInt n) = Int.toString n
-  | string_of_value (VBool b) = Bool.toString b
-  | string_of_value (VClosure (_, _, _, _)) = "<closure>"
-  | string_of_value (VDynamic v) = "Dynamic(" ^ string_of_value v ^ ")"
-  | string_of_value (VError msg) = "Error(" ^ msg ^ ")"
-  | string_of_value (VPair (v1, v2)) = "(" ^ string_of_value v1 ^ ", " ^ string_of_value v2 ^ ")"
 
-(* Test helper that prints a description and then the evaluated value *)
-fun test (desc: string) (e: exp) =
-	let
-		val v = run e
-	in
-		print (desc ^ ": " ^ string_of_value v ^ "\n")
-	end
+(* represent evaluation result as either Ok with a value or Error when an exception occurs *)
+datatype test_result = Ok of value | Error
 
-(* Now we define some test expressions *)
-fun test_eval () =
+(* Safely evaluate an expression with an environment, catching runtime exceptions *)
+fun safeEval (env : env) (exp : exp) : test_result =
+    (Ok (eval env exp))
+    handle UnboundVariable _ => Error
+         | DynamicTypeError _ => Error
+
+(* Equality check between two values; ignores closure comparison *)
+fun equalValue (VInt x) (VInt y) = x = y
+  | equalValue (VBool x) (VBool y) = x = y
+  | equalValue (VDynamic v1) (VDynamic v2) = equalValue v1 v2
+  | equalValue (VPair (x1, x2)) (VPair (y1, y2)) = equalValue x1 y1 andalso equalValue x2 y2
+  | equalValue VNull VNull = true
+  | equalValue _ _ = false
+
+(* Equality check between two test results *)
+fun equalResult (Ok v1) (Ok v2) = equalValue v1 v2
+  | equalResult Error Error = true
+  | equalResult _ _ = false
+
+(* Run a single test case, printing PASS or FAIL with description *)
+fun run_test (desc, env, expr, expected) =
     let
-		(* Test integer literal *)
-		val _ = test "Test int literal" (EInt 42)
-		
-		(* Test boolean literal *)
-		val _ = test "Test boolean literal" (EBool true)
-		
-		(* Test variable lookup: we'll use an environment in the evaluator, but run uses [].
-				So, to test Var we can extend the environment manually. *)
-		val _ =
-			let val v = eval.eval [("x", VInt 10)] (EVar "x") handle
-				UnboundVariable x => VError ("Test variable lookup: unbound variable " ^ x ^ "\n")
-       		in
-				case v of
-					VError msg => print msg
-				  | _ => print ("Test variable lookup: " ^ string_of_value v ^ "\n")
-			end
-      
-		(* Test lambda (closure) creation *)
-		val _ = test "Test lambda (closure)" (ELam ("x", TInt, EVar "x"))
-		
-		(* Test function application:
-				We'll create a lambda that adds 1 to its argument and apply it to an integer *)
-		val addOne = ELam ("x", TInt, (* here we assume a primitive for addition; if not, we can simulate it by returning a constant *) 
-                              EInt  (1))  (* For simplicity, we return 1 as a stub; you can adjust this later *)
-      	val _ = test "Test application (stub addOne)" (EApp (addOne, EInt 100))
-      
-		(* Test if expression: if true then 1 else 0 *)
-		val _ = test "Test if (true)" (EIf (EBool true, EInt 1, EInt 0))
-		val _ = test "Test if (false)" (EIf (EBool false, EInt 1, EInt 0))
-		
-		(* Test error: applying a non-function *)
-		val _ =
-			let val v = (run (EApp (EInt 3, EInt 4))) handle
-				DynamicTypeError x => VError ("Test error (apply non-function) caught: " ^ x ^ "\n")
-       		in
-				case v of
-					VError msg => print msg
-				  | _ => print ("Test error (apply non-function) returned: " ^ string_of_value v ^ "\n")
-			end
-
-		(* Test error: unbound variable *)
-		val _ =
-			let val v = run (EVar "z") handle
-				UnboundVariable x => VError ("Test error (unbound variable) caught: " ^ x ^ "\n")
-       		in
-				case v of
-					VError msg => print msg
-				  | _ => print ("Test error (unbound variable) returned: " ^ string_of_value v ^ "\n")
-			end
-
-      	(* Test cast (stub implementation) *)
-      	val _ = test "Test cast (stub)" (ECast (EInt 7, TInt))
-    
-		(* Test Pair literal:
-       For example, a Pair containing 3 and false *)
-    val _ = test "Test Pair literal" (EPair (EInt 3, EBool false))
-    
-    (* Test nested Pair:
-       For instance, representing a triple as (3, (false, 7)) *)
-    val _ = test "Test nested Pair" (EPair (EInt 3, EPair (EBool false, EInt 7)))
-	in
-  		()
+        val actual = safeEval env expr
+    in
+        if equalResult actual expected then
+            print ("PASS: " ^ desc ^ "\n")
+        else
+            print ("FAIL: " ^ desc ^ "\n")
     end
 
-val _ = test_eval ()
+(* Construct lists of test cases for various language features *)
+val int_literals = List.map (fn i => ("int literal " ^ Int.toString i, ([] : env), EInt i, Ok (VInt i))) [0, ~5, 7]
+
+val bool_literals = List.map (fn b => ("bool literal " ^ Bool.toString b, ([] : env), EBool b, Ok (VBool b))) [true, false]
+
+val plus1_success = List.map (fn i => ("plus1 on " ^ Int.toString i, ([] : env), EPlus1 (EInt i), Ok (VInt (i+1)))) [0, 1, 2, 5]
+
+val plus1_error = List.map (fn b => ("plus1 on bool " ^ Bool.toString b, ([] : env), EPlus1 (EBool b), Error)) [true, false]
+
+val neg_success = List.map (fn b => ("negation of " ^ Bool.toString b, ([] : env), ENeg (EBool b), Ok (VBool (not b)))) [true, false]
+
+val neg_error = List.map (fn i => ("negation of int " ^ Int.toString i, ([] : env), ENeg (EInt i), Error)) [0, 3]
+
+val pair_tests = List.map (fn (i,b) => ("pair (" ^ Int.toString i ^ ", " ^ Bool.toString b ^ ")", ([] : env), EPair (EInt i, EBool b), Ok (VPair (VInt i, VBool b)))) [(1,true),(0,false)]
+
+val nested_pair_tests =
+    [("nested pair", ([] : env), EPair (EInt 3, EPair (EBool false, EInt 7)),
+      Ok (VPair (VInt 3, VPair (VBool false, VInt 7))))]
+
+val let_tests =
+    [
+        ("let binding int", ([] : env), ELet ("x", EInt 4, EVar "x"), Ok (VInt 4)),
+        ("let plus1", ([] : env), ELet ("x", EInt 5, EPlus1 (EVar "x")), Ok (VInt 6)),
+        ("let neg bool", ([] : env), ELet ("x", EBool true, ENeg (EVar "x")), Ok (VBool false)),
+        ("let neg int error", ([] : env), ELet ("x", EInt 3, ENeg (EVar "x")), Error)
+    ]
+
+val if_tests =
+    [
+        ("if true branch", ([] : env), EIf (EBool true, EInt 1, EInt 0), Ok (VInt 1)),
+        ("if false branch", ([] : env), EIf (EBool false, EInt 1, EInt 0), Ok (VInt 0)),
+        ("if non-bool cond", ([] : env), EIf (EInt 1, EInt 1, EInt 0), Error)
+    ]
+
+val var_tests =
+    [
+        ("var lookup success", [("x", VInt 10)], EVar "x", Ok (VInt 10)),
+        ("var lookup error", ([] : env), EVar "y", Error)
+    ]
+
+val app_tests =
+    [
+        ("apply identity", ([] : env), EApp (ELam ("x", EVar "x"), EInt 5), Ok (VInt 5)),
+        ("apply bool identity", ([] : env), EApp (ELam ("x", EVar "x"), EBool false), Ok (VBool false)),
+        ("apply plus1 function", ([] : env), EApp (ELam ("x", EPlus1 (EVar "x")), EInt 2), Ok (VInt 3)),
+        ("apply non-function", ([] : env), EApp (EInt 3, EInt 4), Error)
+    ]
+
+(* Combine all test cases into one list *)
+val testcases = int_literals @ bool_literals @ plus1_success @ plus1_error @ neg_success @ neg_error @ pair_tests @ nested_pair_tests @ let_tests @ if_tests @ var_tests @ app_tests
+
+(* Execute all tests *)
+val _ = List.app run_test testcases

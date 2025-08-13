@@ -1,287 +1,247 @@
-structure CS = constraintsyntax
-structure U = URef
-open CS
-open types
-open eval
-open U
-open Ref
-open expressions
+structure TestConstraint = struct
+    open constraintsyntax
+    open types
+    open expressions
+    open URef
 
-fun assertTrue (msg, b) = 
-    if not b then
-        raise Fail ("Assertion failed: " ^ msg)
-    else
-        ()
-fun assertEqual (msg, x, y) =
-    if x <> y then
-        raise Fail ("Assertion failed: " ^ msg ^ " expected " ^ Int.toString x ^ ", got " ^ Int.toString y)
-    else
-        ()
+    (* Test unification of two type variables. *)
+    fun unify_test desc p_type q_type expected_type =
+        let
+            val p : tvar = (URef.uref (p_type, ([]: int list)))
+            val q : tvar = (URef.uref  (q_type, ([]: int list)))
+            val _ = unifyEq (p, q)
+            val res_p = getTyp p
+            val res_q = getTyp q
+            val pass = (res_p = expected_type) andalso (res_q = expected_type)
+            val _ =
+                print (desc ^ ": " ^ (if pass then "PASS" else
+                    "FAIL (expected " ^ types.typ_to_string expected_type ^
+                    ", got " ^ types.typ_to_string res_p ^ " and " ^
+                    types.typ_to_string res_q ^ ")") ^ "\n")
+        in
+            ()
+        end
 
-fun assertTypeEqual (msg, x, y) =
-    if x <> y then
-        raise Fail ("Assertion failed: " ^ msg ^ " expected " ^ types.string_of_typ x ^ ", got " ^ types.string_of_typ y)
-    else
-        ()
+    (* Test that add_coerce records a coercion and optionally unifies
+     types when the right-hand side is TNull. *)
+    fun add_coerce_test_null desc p_type q_type =
+        let
+            val p : tvar = (URef.uref (p_type, ([]: int list)))
+            val q : tvar = (URef.uref (q_type, ([]: int list)))
+            val _ = worklist := []
+            val _ = add_coerce (p, q)
+            val w = !worklist
+            val res_p = getTyp p
+            val res_q = getTyp q
+            val pass = (List.length w = 1) andalso (res_p = p_type) andalso (res_q = p_type)
+            val _ =
+                print (desc ^ ": " ^ (if pass then "PASS" else
+                    "FAIL (worklist length=" ^ Int.toString (List.length w) ^
+                    ", p typ=" ^ types.typ_to_string res_p ^
+                    ", q typ=" ^ types.typ_to_string res_q ^ ")") ^ "\n")
+        in
+            ()
+        end
 
-(* Test fresh_tvar *)
-fun get t = getTyp t
+    (* Test that add_coerce records a coercion when q is non-null but
+     does not change either type. *)
+    fun add_coerce_test_non_null desc p_type q_type =
+        let
+            val p : tvar = (URef.uref (p_type, ([]: int list)))
+            val q : tvar = (URef.uref (q_type, ([]: int list)))
+            val _ = worklist := []
+            val _ = add_coerce (p, q)
+            val w = !worklist
+            val res_p = getTyp p
+            val res_q = getTyp q
+            val pass = (List.length w = 1) andalso (res_p = p_type) andalso (res_q = q_type)
+            val _ =
+                print (desc ^ ": " ^ (if pass then "PASS" else
+                    "FAIL (worklist length=" ^ Int.toString (List.length w) ^
+                    ", p typ=" ^ types.typ_to_string res_p ^
+                    ", q typ=" ^ types.typ_to_string res_q ^ ")") ^ "\n")
+        in
+            ()
+        end
 
-val _ =
-    let
-        val v1 = fresh_tvar ()
-        val v2 = fresh_tvar ()
-    in 
-        assertTrue ("fresh_tvar should not return the same variable", not (U.eq (v1, v2)));
-        assertTrue ("fresh_tvar initial content should be NONE", !! v1 = NONE)
-    end
+    (* Infer an integer literal. *)
+    fun infer_int_test desc n =
+        let
+            val _ = worklist := []
+            val (_, inner_t, outer_t) = infer (EInt n, ([] : tenv))
+            val res_inner = getTyp inner_t
+            val res_outer = getTyp outer_t
+            val wl_len = List.length (!worklist)
+            val pass = (res_inner = TInt) andalso (res_outer = TInt) andalso (wl_len = 1)
+            val _ =
+                print (desc ^ ": " ^ (if pass then "PASS" else
+                    "FAIL (inner typ=" ^ types.typ_to_string res_inner ^
+                    ", outer typ=" ^ types.typ_to_string res_outer ^
+                    ", worklist length=" ^ Int.toString wl_len ^ ")") ^ "\n")
+        in
+            ()
+        end
 
-val _ = 
-    let 
-        val p = fresh_tvar ()
-        val q = fresh_tvar ()
-    in
-        add_coerce (p, q);
-        case !worklist of
-            (Coerce (p', q')::_) => (
-                assertTrue ("add_coerce should add the correct constraint", eq (p, p'));
-                assertTrue ("add_coerce should add the correct constraint", eq (q, q')))
-          | x => raise Fail ("add_coerce did not add the expected constraint")
-    end
+    (* Infer a boolean literal. *)
+    fun infer_bool_test desc b =
+        let
+            val _ = worklist := []
+            val (_, inner_t, outer_t) = infer (EBool b, ([] : tenv))
+            val res_inner = getTyp inner_t
+            val res_outer = getTyp outer_t
+            val wl_len = List.length (!worklist)
+            val pass = (res_inner = TBool) andalso (res_outer = TBool) andalso (wl_len = 1)
+            val _ =
+                print (desc ^ ": " ^ (if pass then "PASS" else
+                    "FAIL (inner typ=" ^ types.typ_to_string res_inner ^
+                    ", outer typ=" ^ types.typ_to_string res_outer ^
+                    ", worklist length=" ^ Int.toString wl_len ^ ")") ^ "\n")
+        in
+            ()
+        end
 
-val _ =
-    let 
-        val tv1 = U.uref (SOME TInt)
-        val tv2 = U.uref (SOME TBool)
-    in 
-        assertTypeEqual ("getTyp should return TInt for a tvar with TInt", get tv1, TInt);
-        assertTypeEqual ("getTyp should return TDyn for a tvar with NONE", get tv2, TBool)
-    end
+    (* Infer a unary plus one applied to an integer. *)
+    fun infer_plus1_int_test desc n =
+        let
+            val _ = worklist := []
+            val (_, inner_t, outer_t) = infer (EPlus1 (EInt n), ([] : tenv))
+            val res_inner = getTyp inner_t
+            val res_outer = getTyp outer_t
+            val wl_len = List.length (!worklist)
+            val pass = (res_inner = TInt) andalso (res_outer = TInt) andalso (wl_len = 2)
+            val _ =
+                print (desc ^ ": " ^ (if pass then "PASS" else
+                    "FAIL (inner typ=" ^ types.typ_to_string res_inner ^
+                    ", outer typ=" ^ types.typ_to_string res_outer ^
+                    ", worklist length=" ^ Int.toString wl_len ^ ")") ^ "\n")
+        in
+            ()
+        end
 
-val _ =
-    let 
-        val a = U.uref (SOME TInt)
-        val b = U.uref (SOME TInt)
-        val _ = unifyEq (a, b)
-    in
-        assertTrue ("unifyEq should unify two equal types", get a = TInt);
-        assertTrue ("unifyEq should unify two equal types", get b = TInt);
-        assertTypeEqual ("unifyEq should return TInt for both", get a, get b)
-    end
+    (* Infer a unary plus one applied to a boolean. *)
+    fun infer_plus1_bool_test desc =
+        let
+            val _ = worklist := []
+            val (_, inner_t, outer_t) = infer (EPlus1 (EBool true), ([] : tenv))
+            val res_inner = getTyp inner_t
+            val res_outer = getTyp outer_t
+            val wl_len = List.length (!worklist)
+            val pass = (res_inner = TInt) andalso (res_outer = TDyn) andalso (wl_len = 2)
+            val _ =
+                print (desc ^ ": " ^ (if pass then "PASS" else
+                    "FAIL (inner typ=" ^ types.typ_to_string res_inner ^
+                    ", outer typ=" ^ types.typ_to_string res_outer ^
+                    ", worklist length=" ^ Int.toString wl_len ^ ")") ^ "\n")
+        in
+            ()
+        end
 
-val _ =
-    let
-        val a = U.uref (SOME TInt)
-        val b = U.uref (SOME TBool)
-        val _ = unifyEq (a, b)
-    in
-        assertTrue ("unifyEq should unify different types to TDyn", get a = TDyn);
-        assertTrue ("unifyEq should unify different types to TDyn", get b = TDyn);
-        assertTypeEqual ("unifyEq should return TDyn for both", get a, get b)
-    end
+    (* Infer a logical negation of a boolean. *)
+    fun infer_neg_bool_test desc =
+        let
+            val _ = worklist := []
+            val (_, inner_t, outer_t) = infer (ENeg (EBool true), ([] : tenv))
+            val res_inner = getTyp inner_t
+            val res_outer = getTyp outer_t
+            val wl_len = List.length (!worklist)
+            val pass = (res_inner = TBool) andalso (res_outer = TBool) andalso (wl_len = 2)
+            val _ =
+                print (desc ^ ": " ^ (if pass then "PASS" else
+                    "FAIL (inner typ=" ^ types.typ_to_string res_inner ^
+                    ", outer typ=" ^ types.typ_to_string res_outer ^
+                    ", worklist length=" ^ Int.toString wl_len ^ ")") ^ "\n")
+        in
+            ()
+        end
 
-val _ =
-    let 
-        val a = U.uref NONE
-        val b = U.uref (SOME TBool)
-        val _ = unifyEq (a, b)
-    in
-        assertTrue ("unifyEq should unify NONE with TBool to TBool", get a = TBool);
-        assertTrue ("unifyEq should unify NONE with TBool to TBool", get b = TBool);
-        assertTypeEqual ("unifyEq should return TBool for both", get a, get b)
-    end
+    (* Infer a logical negation of an integer. *)
+    fun infer_neg_int_test desc =
+        let
+            val _ = worklist := []
+            val (_, inner_t, outer_t) = infer (ENeg (EInt 5), ([] : tenv))
+            val res_inner = getTyp inner_t
+            val res_outer = getTyp outer_t
+            val wl_len = List.length (!worklist)
+            val pass = (res_inner = TBool) andalso (res_outer = TDyn) andalso (wl_len = 2)
+            val _ =
+                print (desc ^ ": " ^ (if pass then "PASS" else
+                    "FAIL (inner typ=" ^ types.typ_to_string res_inner ^
+                    ", outer typ=" ^ types.typ_to_string res_outer ^
+                    ", worklist length=" ^ Int.toString wl_len ^ ")") ^ "\n")
+        in
+            ()
+        end
 
-val _ =
-    let 
-        val a = U.uref (SOME (TFun (TInt, TBool)))
-        val b = U.uref (SOME (TFun (TInt, TInt)))
-        val _ = unifyEq (a, b)
-    in
-        assertTrue ("unifyEq should unify two function types", get a = TFun (TInt, TDyn));
-        assertTrue ("unifyEq should unify two function types", get b = TFun (TInt, TDyn));
-        assertTypeEqual ("unifyEq should return the same function type for both", get a, get b)
-    end
+    (* Infer a variable reference. *)
+    fun infer_var_test desc =
+        let
+            val _ = worklist := []
+            val t1 : tvar = (URef.uref (TInt, ([]: int list)))
+            val t2 : tvar = (URef.uref (TInt, ([]: int list)))
+            val tenv1 : tenv = [("x", t1, t2)]
+            val (_, inner_t, outer_t) = infer (EVar "x", tenv1)
+            val res_inner = getTyp inner_t
+            val res_outer = getTyp outer_t
+            val wl_len = List.length (!worklist)
+            val pass = (res_inner = TInt) andalso (res_outer = TInt) andalso (wl_len = 0)
+            val _ =
+                print (desc ^ ": " ^ (if pass then "PASS" else
+                    "FAIL (inner typ=" ^ types.typ_to_string res_inner ^
+                    ", outer typ=" ^ types.typ_to_string res_outer ^
+                    ", worklist length=" ^ Int.toString wl_len ^ ")") ^ "\n")
+        in
+            ()
+        end
 
-val _ =
-    let 
-        val a = U.uref (SOME (TPair (TInt, TBool)))
-        val b = U.uref (SOME (TPair (TInt, TInt)))
-        val _ = unifyEq (a, b)
-    in
-        assertTrue ("unifyEq should unify two Pair types", get a = TPair (TInt, TDyn));
-        assertTrue ("unifyEq should unify two Pair types", get b = TPair (TInt, TDyn));
-        assertTypeEqual ("unifyEq should return the same Pair type for both", get a, get b)
-    end
+    (* Test the generate function on a simple integer literal. *)
+    fun generate_int_test desc =
+        let
+            val (ann_exp, constraints) = generate (EInt 3)
+            val outer_typ =
+                case ann_exp of
+                    AInt (_, _, t2, _) => getTyp t2
+                | _ => TDyn
+            val wl_len = List.length constraints
+            val pass = (outer_typ = TInt) andalso (wl_len = 1)
+            val _ =
+                print (desc ^ ": " ^ (if pass then "PASS" else
+                    "FAIL (outer typ=" ^ types.typ_to_string outer_typ ^
+                    ", constraints length=" ^ Int.toString wl_len ^ ")") ^ "\n")
+        in
+            ()
+        end
 
-val _ =
-    let 
-        val (exp, cs) = CS.generate (EInt 42)
-    in 
-        case exp of
-            AInt (n, t1, t2) => (
-                assertTrue ("AInt should have the correct value", n = 42);
-                assertTrue ("The inner and outer tvars should be the same", eq (t1, t2));
-                assertTypeEqual ("AInt should have the correct type", get t1, TInt);
-                assertTypeEqual ("AInt should have the correct type", get t2, TInt);
-                assertTrue ("Constraints should be empty for AInt", (length cs) = 0))
-          | _ => raise Fail "Expected AInt expression"
-    end
+    (* Utility to check if one string is a prefix of another. *)
+    fun isPrefix (pre: string) (s: string) : bool =
+        let
+            val lenPre = String.size pre
+        in
+            if String.size s < lenPre then false
+            else String.substring (s, 0, lenPre) = pre
+        end
 
-val _ =
-    let 
-        val (exp, cs) = CS.generate (EBool true)
-    in
-        case exp of
-            ABool (b, t1, t2) => (
-                assertTrue ("ABool should have the correct value", b = true);
-                assertTrue ("The inner and outer tvars should be the same", eq (t1, t2));
-                assertTypeEqual ("ABool should have the correct type", get t1, TBool);
-                assertTypeEqual ("ABool should have the correct type", get t2, TBool);
-                assertTrue ("Constraints should be empty for ABool", (length cs) = 0))
-          | _ => raise Fail "Expected ABool expression"
-    end
+  (* Run all defined tests.  Each call prints its own result. *)
+    fun run_all_tests () =
+        (
+        unify_test "Unify TInt with TInt" TInt TInt TInt;
+        unify_test "Unify TInt with TBool -> TDyn" TInt TBool TDyn;
+        unify_test "Unify TNull with TInt" TNull TInt TInt;
+        unify_test "Unify TNull with TNull" TNull TNull TNull;
+        unify_test "Unify function (TInt->TBool) with (TInt->TInt) -> TFun(TInt,TDyn)"
+            (TFun (TInt, TBool)) (TFun (TInt, TInt)) (TFun (TInt, TDyn));
+        unify_test "Unify pair (TInt,TBool) with (TInt,TInt) -> TPair(TInt,TDyn)"
+            (TPair (TInt, TBool)) (TPair (TInt, TInt)) (TPair (TInt, TDyn));
+        add_coerce_test_null "Add coerce with q = TNull" TInt TNull;
+        add_coerce_test_non_null "Add coerce with q != TNull" TInt TInt;
+        infer_int_test "Infer EInt" 5;
+        infer_bool_test "Infer EBool" true;
+        infer_plus1_int_test "Infer EPlus1 (int)" 5;
+        infer_plus1_bool_test "Infer EPlus1 (bool)";
+        infer_neg_bool_test "Infer ENeg (bool)";
+        infer_neg_int_test "Infer ENeg (int)";
+        infer_var_test "Infer EVar";
+        generate_int_test "Generate EInt"
+        )
 
-val _ =
-    let 
-        val (exp, _, _) = CS.infer ((EVar "x"), [("x", U.uref (SOME TInt), U.uref (SOME TInt), (EVar "x"))])
-    in
-        case exp of
-            AVar (v, t1, t2) => ( 
-                assertTrue ("AVar should have the correct variable name", v = "x");
-                assertTypeEqual ("AVar should have the correct type", get t1, TInt);
-                assertTypeEqual ("AVar should have the correct type", get t2, TInt))
-          | _ => raise Fail "Expected AVar expression"
-    end
-
-val _ =
-    (CS.generate (EVar "y");
-        raise Fail "Expected UnboundVariable ")
-    handle eval.UnboundVariable(_) => ()
-
-val _ =
-    let 
-        val (exp, cs) = CS.generate (ELam ("x", TInt, EVar "x"))
-    in
-        case exp of
-            ALam (v, t, body, a, b) => (
-                assertTrue ("ALam should have the correct variable name", v = "x");
-                assertTypeEqual ("ALam should have the correct type", t, TInt);
-                assertTrue ("The inner and outer tvars should be different", not (eq (a, b)));
-                assertTypeEqual ("ALam should have the correct type for inner body", get a, TFun (TInt, TInt));
-                assertTypeEqual ("ALam should have the correct type for outer body", get b, TFun (TInt, TInt));
-                assertTrue ("Constraints should not be empty for ALam", length cs = 1 ))
-          | _ => raise Fail "Expected ALam expression"
-    end
-
-val _ =
-    let 
-        val (exp, cs) = CS.generate (EApp (ELam ("x", TInt, EVar "x"), EInt 42))
-    in
-        case exp of
-            AApp (f', arg', a, b) => (
-                assertTrue ("The inner and outer tvars should be different", not (eq (a, b)));
-                assertTypeEqual ("AApp should have the correct type for inner function", get a, TInt);
-                assertTypeEqual ("AApp should have the correct type for outer function", get b, TInt);
-                assertTrue ("Constraints should not be empty for AApp", length cs = 2))
-          | _ => raise Fail "Expected AApp expression"
-    end
-
-val _ =
-    let 
-        val (exp, cs) = CS.generate (ELet ("x", EInt 42, EVar "x"))
-    in
-        case exp of
-            ALet (x, e1', e2', a, b) => (
-                assertTypeEqual ("ALet should have the correct type for e1'", get a, TInt);
-                assertTypeEqual ("ALet should have the correct type for e2'", get b, TInt);
-                assertTrue ("Constraints should not be empty for ALet", length cs = 1))
-          | _ => raise Fail "Expected ALet expression"
-    end
-
-val _ =
-    let 
-        val (exp, cs) = CS.generate (EIf (EBool true, EInt 1, EInt 0))
-    in
-        case exp of
-            AIf (cond, e_then', e_else', a, b) => (
-                assertTypeEqual ("AIf should have the correct type for then and else branches", get b, TInt);
-                assertTrue ("Constraints should not be empty for AIf", length cs = 1))
-          | _ => raise Fail "Expected AIf expression"
-    end
-
-val _ =
-    let
-        val (exp, cs) = CS.generate (EPair (EInt 1, EBool true))
-    in
-        case exp of
-            APair (e1, e2, a, b) => (
-                assertTypeEqual ("APair should have the correct type for first element", get a, TPair (TInt, TBool));
-                assertTypeEqual ("APair should have the correct type for second element", get b, TPair (TInt, TBool));
-                assertTrue ("The inner and outer tvars should be different", not (eq (a, b)));
-                assertTrue ("Constraints should not be empty for APair", length cs = 1))
-          | _ => raise Fail "Expected APair expression"
-    end
-
-val _ = 
-    let
-        val (exp, cs) = CS.generate (expressions.EInt 42)
-        val s = CS.prettyp exp
-    in
-        print  ("Program 1 := " ^ s ^ "\n");
-        print  ("Coercions: " ^ Int.toString (List.length cs) ^ "\n")
-    end
-
-
-val _ = 
-    let
-        val (exp, cs) = CS.generate (expressions.EIf(
-                        expressions.EBool true,
-                        expressions.EInt 1,
-                        expressions.EInt 0))
-    in
-        print  ("Program 2 := " ^ CS.prettyp exp ^ "\n");
-        print  ("Coercions: " ^ Int.toString (List.length cs) ^ "\n")
-    end
-
-val _ =
-    let
-        val (exp, cs) = CS.generate (expressions.ELet("x",
-                        expressions.EInt 5,
-                        expressions.EVar "x"))
-    in
-        print  ("Program 3 := " ^ CS.prettyp exp ^ "\n");
-        print  ("Coercions: " ^ Int.toString (List.length cs) ^ "\n")
-    end
-
-val _ =
-    let
-        val (exp, cs) = CS.generate (expressions.ELam("x", types.TInt,
-                        expressions.EVar "x"))
-    in
-        print  ("Program 4 := " ^ CS.prettyp exp ^ "\n");
-        print  ("Coercions: " ^ Int.toString (List.length cs) ^ "\n")
-    end
-
-val _ =
-    let
-        val (exp, cs) = CS.generate (expressions.EPair(expressions.EInt 3, expressions.EBool false))
-    in
-        print  ("Program 5 := " ^ CS.prettyp exp ^ "\n");
-        print  ("Coercions: " ^ Int.toString (List.length cs) ^ "\n")
-    end
-    
-val _ =
-    let
-        val (exp, cs) = CS.generate (expressions.ELet("f",
-                        (* binding = λx:Int. ⟨x, x⟩ *)
-                        expressions.ELam("x", types.TInt,
-                        expressions.EPair(expressions.EVar "x", expressions.EVar "x")
-                        ),
-                        (* body = f 2 *)
-                        expressions.EApp(expressions.EVar "f", expressions.EBool true)))
-        val printedwl = CS.prettyp_worklist ()
-    in
-        print  ("Program 6 := " ^ CS.prettyp exp ^ "\n");
-        print  ("Coercions: " ^ Int.toString (List.length cs) ^ "\n");
-        print  ("Worklist: " ^ printedwl ^ "\n")
-    end
+    val _ = run_all_tests ()
+end

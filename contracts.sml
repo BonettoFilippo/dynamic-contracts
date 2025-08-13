@@ -151,7 +151,7 @@ structure contracts : CONTRACTS = struct
                 in
                     case ft of
                         types.TFun (t1, t2) => t2
-                      | _ => raise eval.DynamicTypeError (i, "Expected a function type for application, got " ^ types.string_of_typ ft ^ ".")
+                      | _ => raise eval.DynamicTypeError (i, "Expected a function type for application, got " ^ types.typ_to_string ft ^ ".")
                 end
           | constraintsyntax.AIf (c, t, e, _, _, _) => 
                 let
@@ -243,7 +243,7 @@ structure contracts : CONTRACTS = struct
                                     raise eval.DynamicTypeError (id, "Changing the value passed to the function to a integer solves the error, but generates a new one at line " ^ Int.toString id ^ ".")
                           | e => raise eval.DynamicTypeError (idx, "Changing the value passed to the function to a integer solves the error, but generates a new one.")
                     in 
-                        raise eval.DynamicTypeError (idx, "The error is in the caller of the +1 expression at line " ^ Int.toString idx ^". The value passed has type " ^ types.string_of_typ t ^ " but expected an integer. The value was most likely generated at line " ^ constraintsyntax.print_list n ^ ".")
+                        raise eval.DynamicTypeError (idx, "The error is in the caller of the +1 expression at line " ^ Int.toString idx ^". The value passed has type " ^ types.typ_to_string t ^ " but expected an integer. The value was most likely generated at line " ^ constraintsyntax.print_list n ^ ".")
                     end
               | constraintsyntax.ANeg (_, t1, t2, _) => 
                     let 
@@ -261,7 +261,7 @@ structure contracts : CONTRACTS = struct
                                     raise eval.DynamicTypeError (id, "Changing the value passed to the function to a boolean solves the error, but generates a new one at line " ^ Int.toString id ^ ".")
                           | e => raise eval.DynamicTypeError (idx, "Changing the value passed to the function to a boolean solves the error, but generates a new one.")
                     in 
-                        raise eval.DynamicTypeError (idx, "The error is in the caller of the negation expression at line " ^ Int.toString idx ^". The value passed has type " ^ types.string_of_typ t ^ " but expected a boolean. The value was most likely generated at line " ^ constraintsyntax.print_list n ^ ".")
+                        raise eval.DynamicTypeError (idx, "The error is in the caller of the negation expression at line " ^ Int.toString idx ^". The value passed has type " ^ types.typ_to_string t ^ " but expected a boolean. The value was most likely generated at line " ^ constraintsyntax.print_list n ^ ".")
                     end
               | constraintsyntax.AApp (f, v, t1, t2, i) => 
                     let
@@ -419,7 +419,7 @@ structure contracts : CONTRACTS = struct
                                     raise eval.DynamicTypeError (id, "Changing the value passed as the condition to the if expression to a boolean solves the error, but generates a new one at line " ^ Int.toString id ^ ".")
                           | e => raise eval.DynamicTypeError (idx, "Changing the value passed as the condition to the if expression to a boolean solves the error, but generates a new one.")
                     in 
-                        raise eval.DynamicTypeError (idx, "The error is in the generation of the condition of the if expression at line " ^ Int.toString idx ^". The value passed as a condition has type " ^ types.string_of_typ t ^ " but expected a boolean. The value was most likely generated at line " ^ constraintsyntax.print_list n ^ ".")
+                        raise eval.DynamicTypeError (idx, "The error is in the generation of the condition of the if expression at line " ^ Int.toString idx ^". The value passed as a condition has type " ^ types.typ_to_string t ^ " but expected a boolean. The value was most likely generated at line " ^ constraintsyntax.print_list n ^ ".")
                     end
               | _ => raise UnexpectedExpression e
         end

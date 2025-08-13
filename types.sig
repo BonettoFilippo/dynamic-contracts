@@ -10,6 +10,6 @@ sig
       | TPair of typ * typ
 
     (* a function that converts type into human readable strings *)
-    val string_of_typ : typ -> string
+    val typ_to_string : typ -> string
     
 end;

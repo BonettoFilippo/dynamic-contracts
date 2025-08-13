@@ -306,7 +306,7 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
         let
             val (ty_opt, i) = U.!! v
         in
-            types.string_of_typ ty_opt ^ " #[" ^ print_list i ^ "]"
+            types.typ_to_string ty_opt ^ " #[" ^ print_list i ^ "]"
         end
     
     (* pretty printing function for annotated expressions *)

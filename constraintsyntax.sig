@@ -42,7 +42,7 @@ sig
   val print_list : int list -> string
 
   (* a function to convert a tvar to a string representation *)
-  val string_of_tvar : tvar -> string 
+  val tvar_to_string : tvar -> string 
   (* pretty preting function for annotations *)
   val prettyp : ann_exp -> string 
   (* pretty preting function for the worklist *)
