@@ -227,42 +227,6 @@ structure contracts : CONTRACTS = struct
             val e = findexp (exp, idx)
         in 
             case e of
-                constraintsyntax.APlus1 (_, t1, t2, _) => 
-                    let 
-                        val (t, n) = URef.!! t2
-                        val tv1 = URef.uref (types.TInt, [idx + 1])
-                        val tv2 = URef.uref (types.TInt, [idx + 1])
-                        val e' = constraintsyntax.APlus1 ((constraintsyntax.AInt (1, tv1, tv2, idx + 1)), t1, t2, idx)
-                        val result = eval_ann.run_ann e' handle
-                            eval.DynamicTypeError (id, _) => 
-                                if 
-                                    id = idx 
-                                then
-                                    raise eval.DynamicTypeError (id,  "Even changing the value passed to the function to a integer doesn't solve the error.")
-                                else 
-                                    raise eval.DynamicTypeError (id, "Changing the value passed to the function to a integer solves the error, but generates a new one at line " ^ Int.toString id ^ ".")
-                          | e => raise eval.DynamicTypeError (idx, "Changing the value passed to the function to a integer solves the error, but generates a new one.")
-                    in 
-                        raise eval.DynamicTypeError (idx, "The error is in the caller of the +1 expression at line " ^ Int.toString idx ^". The value passed has type " ^ types.typ_to_string t ^ " but expected an integer. The value was most likely generated at line " ^ constraintsyntax.print_list n ^ ".")
-                    end
-              | constraintsyntax.ANeg (_, t1, t2, _) => 
-                    let 
-                        val (t, n) = URef.!! t2
-                        val tv1 = URef.uref (types.TBool, [idx + 1])
-                        val tv2 = URef.uref (types.TBool, [idx + 1])
-                        val e' = constraintsyntax.ANeg ((constraintsyntax.ABool (true, tv1, tv2, idx + 1)), t1, t2, idx)
-                        val result = eval_ann.run_ann e' handle
-                            eval.DynamicTypeError (id, _) => 
-                                if 
-                                    id = idx 
-                                then
-                                    raise eval.DynamicTypeError (id, "Even changing the value passed to the function to a boolean doesn't solve the error.")
-                                else 
-                                    raise eval.DynamicTypeError (id, "Changing the value passed to the function to a boolean solves the error, but generates a new one at line " ^ Int.toString id ^ ".")
-                          | e => raise eval.DynamicTypeError (idx, "Changing the value passed to the function to a boolean solves the error, but generates a new one.")
-                    in 
-                        raise eval.DynamicTypeError (idx, "The error is in the caller of the negation expression at line " ^ Int.toString idx ^". The value passed has type " ^ types.typ_to_string t ^ " but expected a boolean. The value was most likely generated at line " ^ constraintsyntax.print_list n ^ ".")
-                    end
               | constraintsyntax.AApp (f, v, t1, t2, i) => 
                     let
                         val inp_type = get_actual_typ (v, env) handle
@@ -403,24 +367,6 @@ structure contracts : CONTRACTS = struct
                                     notifica all'utente che il contratto é infranto
                                     FARE UN CONTRATTO ALLA VOLTA, FARE PIU ESECUZIONI E' OK
                                     ricorrere sul prossimo errore della lista per controllare altri eventuali contratti *)
-              | constraintsyntax.AIf (_, exp_then, exp_else, t1, t2, _) => 
-                    let 
-                        val (t, n) = URef.!! t2
-                        val tv1 = URef.uref (types.TBool, [idx + 1])
-                        val tv2 = URef.uref (types.TBool, [idx + 1])
-                        val e' = constraintsyntax.AIf ((constraintsyntax.ABool (true, tv1, tv2, idx + 1)), exp_then, exp_else, t1, t2, idx)
-                        val result = eval_ann.run_ann e' handle
-                            eval.DynamicTypeError (id, _) => 
-                                if 
-                                    id = idx 
-                                then
-                                    raise eval.DynamicTypeError (id, "Even changing the value passed as the condition to the if expression to a boolean doesn't solve the error.")
-                                else 
-                                    raise eval.DynamicTypeError (id, "Changing the value passed as the condition to the if expression to a boolean solves the error, but generates a new one at line " ^ Int.toString id ^ ".")
-                          | e => raise eval.DynamicTypeError (idx, "Changing the value passed as the condition to the if expression to a boolean solves the error, but generates a new one.")
-                    in 
-                        raise eval.DynamicTypeError (idx, "The error is in the generation of the condition of the if expression at line " ^ Int.toString idx ^". The value passed as a condition has type " ^ types.typ_to_string t ^ " but expected a boolean. The value was most likely generated at line " ^ constraintsyntax.print_list n ^ ".")
-                    end
               | _ => raise UnexpectedExpression e
         end
 
@@ -437,9 +383,7 @@ structure contracts : CONTRACTS = struct
             val (annotated_exp, constraints) = constraintsyntax.generate exp
         in
             eval_ann.run_ann annotated_exp handle
-                eval.DynamicTypeError (idx, _) => 
-                    let val _ = handle_dyn_type_error (idx, annotated_exp, [], constraints, []) in eval_ann.AVInt 0 end
-              | eval_ann.DynamicTypeContractError (idx, env, msg, lst) => let val _ = handle_dyn_type_error (idx, annotated_exp, env, constraints, lst) in eval_ann.AVInt 0 end
+                eval_ann.DynamicTypeContractError (idx, env, msg, lst) => let val _ = handle_dyn_type_error (idx, annotated_exp, env, constraints, lst) in eval_ann.AVInt 0 end
               | e => raise e
         end
         (*
