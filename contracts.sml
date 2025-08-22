@@ -227,7 +227,7 @@ structure contracts : CONTRACTS = struct
             val e = findexp (exp, idx)
         in 
             case e of
-              | constraintsyntax.AApp (f, v, t1, t2, i) => 
+                constraintsyntax.AApp (f, v, t1, t2, i) => 
                     let
                         val inp_type = get_actual_typ (v, env) handle
                             eval.DynamicTypeError (id, _) => (

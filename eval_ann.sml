@@ -48,13 +48,13 @@ structure eval_ann : EVAL_ANN = struct
                     val v2 = eval_ann env e2
                 in
                     (case v1 of
-                        AVClosure (x, body, cloEnv) =>
+                        AVClosure (x, body, cloEnv) =>(
                             eval_ann ((x, v2) :: cloEnv) body handle
                                 eval.DynamicTypeError (id, msg) => 
                                     raise DynamicTypeContractError (idx, env, "Contract error, need to assign blame", [eval.DynamicTypeError (id, msg)])
                               | DynamicTypeContractError (id, env', msg, ex) =>
                                     raise DynamicTypeContractError (idx, env, "Contract error, need to assign blame", DynamicTypeContractError (id, env', msg, ex)::ex)
-                              | e => raise e
+                              | e => raise e)
                       | _ => raise eval.DynamicTypeError (idx, "Attempted to apply a non-function"))
                 end)
           | constraintsyntax.AIf (cond, e_then, e_else, _, _, idx) =>
