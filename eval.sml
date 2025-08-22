@@ -11,8 +11,6 @@ structure eval : EVAL = struct
         VInt of int
       | VBool of bool
       | VClosure of string * expressions.exp * ((string * value) list)
-      | VDynamic of value
-      | VNull
       | VPair of value * value
 
     (* the environment is a list of pairs of strings and values *)
@@ -80,16 +78,14 @@ structure eval : EVAL = struct
           | VBool _ => types.TBool
           | VClosure (input, output, env) => 
                 let
-                    val inputType =     
+                    val (inputVal, inputType) =     
                         (case List.find (fn (x, _) => x = input) env of
-                            SOME (_, v) => v
-                          | NONE => VDynamic (VInt 0)) 
-                    val outputType = value_to_type (eval ((input, inputType) :: env) output)
+                            SOME (_, v) => (v, value_to_type v)
+                          | NONE => (VBool true, types.TDyn)) 
+                    val outputType = value_to_type (eval ((input, inputVal) :: env) output)
                 in
-                    types.TFun ((value_to_type inputType), outputType)
+                    types.TFun (inputType, outputType)
                 end
-          | VDynamic v => types.TDyn
-          | VNull => types.TNull
           | VPair (v1, v2) => types.TPair (value_to_type v1, value_to_type v2)
 
 

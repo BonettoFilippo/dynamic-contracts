@@ -7,8 +7,6 @@ structure eval_ann : EVAL_ANN = struct
             AVInt of int
           | AVBool of bool
           | AVClosure of string * constraintsyntax.ann_exp * ((string * ann_value) list)
-          | AVDynamic of ann_value
-          | AVNull
           | AVPair of ann_value * ann_value
 
     (* the environment is a list of pairs of strings and annotated values *)
@@ -58,19 +56,19 @@ structure eval_ann : EVAL_ANN = struct
                         let 
                             val _ = raise DynamicTypeContractError (idx, env, "Contract error, need to assign blame", [eval.DynamicTypeError (id, msg)])
                         in 
-                            AVNull
+                            AVInt 0
                         end
                   | DynamicTypeContractError (id, env', msg, ex) =>
                         let 
                             val _ = raise DynamicTypeContractError (idx, env, "Contract error, need to assign blame", DynamicTypeContractError (id, env', msg, ex)::ex)
                         in 
-                            AVNull
+                            AVInt 0
                         end
                   | e => 
                         let
                             val _ = raise e 
                         in 
-                            AVNull
+                            AVInt 0
                         end )
           | constraintsyntax.AIf (cond, e_then, e_else, _, _, idx) =>
                 let
@@ -98,16 +96,14 @@ structure eval_ann : EVAL_ANN = struct
           | AVBool _ => types.TBool
           | AVClosure (input, output, env) => 
                 let
-                    val inputType =     
+                    val (inputVal, inputType) =     
                         (case List.find (fn (x, _) => x = input) env of
-                            SOME (_, v) => v
-                          | NONE => AVDynamic (AVInt 0)) 
-                    val outputType = ann_value_to_type (eval_ann ((input, inputType) :: env) output)
+                            SOME (_, v) => (v, ann_value_to_type v)
+                          | NONE => (AVBool true, types.TDyn)) 
+                    val outputType = ann_value_to_type (eval_ann ((input, inputVal) :: env) output)
                 in
-                    types.TFun ((ann_value_to_type inputType), outputType)
+                    types.TFun (inputType, outputType)
                 end
-          | AVDynamic v => types.TDyn
-          | AVNull => types.TNull
           | AVPair (v1, v2) => types.TPair (ann_value_to_type v1, ann_value_to_type v2)
 
     (* an alias to run the evaluator *)

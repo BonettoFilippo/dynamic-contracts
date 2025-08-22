@@ -9,8 +9,6 @@ signature EVAL = sig
         VInt of int
       | VBool of bool
       | VClosure of string * expressions.exp * ((string * value) list)
-      | VDynamic of value
-      | VNull
       | VPair of value * value
 
     (* the environment is a list of pairs of strings and values *)

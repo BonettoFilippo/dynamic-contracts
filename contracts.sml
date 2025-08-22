@@ -133,12 +133,11 @@ structure contracts : CONTRACTS = struct
                 let
                     val inp = 
                     (case List.find (fn (y, _) => s = y) env of
-                        SOME (_, v) => v
-                      | NONE => eval_ann.AVDynamic (eval_ann.AVInt 0))
-                    val inp' = eval_ann.ann_value_to_type inp
+                        SOME (_, v) => eval_ann.ann_value_to_type v
+                      | NONE => types.TDyn)
                     val out = get_actual_typ (b, env)
                 in
-                    types.TFun (inp', out) 
+                    types.TFun (inp, out) 
                 end
           | constraintsyntax.AApp (f, inp, _, _, i) => 
                 let
@@ -198,6 +197,7 @@ structure contracts : CONTRACTS = struct
                 in
                     constraintsyntax.APair (get_new_ann_value_with_type t1, get_new_ann_value_with_type t2, tv1, tv2, 0)
                 end
+          | types.TDyn => constraintsyntax.AInt (1, URef.uref (types.TInt, []), URef.uref (types.TInt, []), 0)
           | _ => raise eval.DynamicTypeError (0, "Not a value")
 
         (*
@@ -429,7 +429,7 @@ structure contracts : CONTRACTS = struct
         This function serves as the main entry point for evaluating a source expression with contract and dynamic type error handling.
         - It first generates the annotated expression and the list of constraints using constraintsyntax.generate.
         - It then evaluates the annotated expression using eval_ann.run_ann.
-        - If a DynamicTypeError or DynamicTypeContractError is raised during evaluation, it invokes handle_dyn_type_error to analyze the error, print a detailed and actionable message, and returns a default dynamic value (AVDynamic (AVInt 0)) to allow the program to continue.
+        - If a DynamicTypeError or DynamicTypeContractError is raised during evaluation, it invokes handle_dyn_type_error to analyze the error, print a detailed and actionable message, and returns a default dynamic value.
         - Any other exceptions are propagated.
         This function ensures that all dynamic type errors are caught and explained with as much context as possible, helping the user understand the source and nature of the error, and how to fix it *)
     fun execute (exp: expressions.exp) : eval_ann.ann_value=
@@ -438,8 +438,8 @@ structure contracts : CONTRACTS = struct
         in
             eval_ann.run_ann annotated_exp handle
                 eval.DynamicTypeError (idx, _) => 
-                    let val _ = handle_dyn_type_error (idx, annotated_exp, [], constraints, []) in eval_ann.AVDynamic (eval_ann.AVInt 0) end
-              | eval_ann.DynamicTypeContractError (idx, env, msg, lst) => let val _ = handle_dyn_type_error (idx, annotated_exp, env, constraints, lst) in eval_ann.AVDynamic (eval_ann.AVInt 0) end
+                    let val _ = handle_dyn_type_error (idx, annotated_exp, [], constraints, []) in eval_ann.AVInt 0 end
+              | eval_ann.DynamicTypeContractError (idx, env, msg, lst) => let val _ = handle_dyn_type_error (idx, annotated_exp, env, constraints, lst) in eval_ann.AVInt 0 end
               | e => raise e
         end
         (*

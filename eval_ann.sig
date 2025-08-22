@@ -6,8 +6,6 @@ signature EVAL_ANN = sig
             AVInt of int
           | AVBool of bool
           | AVClosure of string * constraintsyntax.ann_exp * ((string * ann_value) list)
-          | AVDynamic of ann_value
-          | AVNull
           | AVPair of ann_value * ann_value
 
     (* the environment is a list of pairs of strings and annotated values *)
