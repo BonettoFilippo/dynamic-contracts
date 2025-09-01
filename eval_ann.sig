@@ -12,13 +12,15 @@ signature EVAL_ANN = sig
     type ann_env = (string * ann_value) list
     
     (* a new exception to signal any breaking of contracts. *)
-    exception DynamicTypeContractError of int * ann_env * string * exn list
+    exception DynamicTypeContractError of int * ann_env * string * int
 
     (* convert an annotated value to its type, used for type checking and coercions *)
     val ann_value_to_type : ann_value -> types.typ 
 
     (* the evaluator takes an environment and an expression, and returns a annotated value *)
     val eval_ann : ann_env -> constraintsyntax.ann_exp -> ann_value
+
+    val eval_ann_to_var : ann_env -> constraintsyntax.ann_exp -> string option
 
     (* an alias to run the evaluator *)
     val run_ann : constraintsyntax.ann_exp -> ann_value

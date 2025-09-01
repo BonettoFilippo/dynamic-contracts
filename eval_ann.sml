@@ -12,7 +12,7 @@ structure eval_ann : EVAL_ANN = struct
     (* the environment is a list of pairs of strings and annotated values *)
     type ann_env = (string * ann_value) list
 
-    exception DynamicTypeContractError of int * ann_env * string * exn list
+    exception DynamicTypeContractError of int * ann_env * string * int
 
     (* the evaluator takes an environment and an expression, and returns a value *)
     (* recurses the syntax tree up to the leaves to solve inner nodes*)
@@ -51,9 +51,9 @@ structure eval_ann : EVAL_ANN = struct
                         AVClosure (x, body, cloEnv) =>(
                             eval_ann ((x, v2) :: cloEnv) body handle
                                 eval.DynamicTypeError (id, msg) => 
-                                    raise DynamicTypeContractError (idx, env, "Contract error, need to assign blame", [eval.DynamicTypeError (id, msg)])
+                                    raise DynamicTypeContractError (idx, env, "Contract error, need to assign blame", id)
                               | DynamicTypeContractError (id, env', msg, ex) =>
-                                    raise DynamicTypeContractError (idx, env, "Contract error, need to assign blame", DynamicTypeContractError (id, env', msg, ex)::ex)
+                                    raise DynamicTypeContractError (idx, env, "Contract error, need to assign blame", id)
                               | e => raise e)
                       | _ => raise eval.DynamicTypeError (idx, "Attempted to apply a non-function"))
                 end)
@@ -75,6 +75,47 @@ structure eval_ann : EVAL_ANN = struct
           | constraintsyntax.APair (e1, e2, _, _, _) =>
                 AVPair (eval_ann env e1, eval_ann env e2)
 
+    fun eval_ann_to_var (env: ann_env) (e: constraintsyntax.ann_exp) : (string option) =
+        case e of 
+            constraintsyntax.AVar (x, _, _, _) => SOME x
+          | constraintsyntax.AInt (n, _, _, _) => NONE
+          | constraintsyntax.ABool (b, _, _, _) => NONE
+          | constraintsyntax.APlus1 (e1, _, _, idx) => eval_ann_to_var env e1
+          | constraintsyntax.ANeg (e1, _, _, idx) => eval_ann_to_var env e1
+          | constraintsyntax.ALam (x, body, _, _, _) => NONE
+          | constraintsyntax.AApp (e1, e2, _, _, idx) =>
+                (let
+                    val v1 = eval_ann env e1
+                    val v2 = eval_ann env e2
+                in
+                    (case v1 of
+                        AVClosure (x, body, cloEnv) => (
+                            eval_ann_to_var ((x, v2) :: cloEnv) body handle
+                                eval.DynamicTypeError (id, msg) => 
+                                    raise DynamicTypeContractError (idx, env, "Contract error, need to assign blame", id)
+                              | DynamicTypeContractError (id, env', msg, ex) =>
+                                    raise DynamicTypeContractError (idx, env, "Contract error, need to assign blame", id)
+                              | e => raise e)
+                      | _ => raise eval.DynamicTypeError (idx, "Attempted to apply a non-function"))
+                end)
+          | constraintsyntax.AIf (cond, e_then, e_else, _, _, idx) =>
+                let
+                    val vcond = eval_ann env cond
+                in
+                    (case vcond of
+                        AVBool true => eval_ann_to_var env e_then
+                      | AVBool false => eval_ann_to_var env e_else
+                      | _ => raise eval.DynamicTypeError (idx, "Condition is not a boolean"))
+                end
+          | constraintsyntax.ALet (x, e1, e2, _, _, _) =>
+                let
+                    val v1 = eval_ann env e1
+                in
+                    eval_ann_to_var ((x, v1) :: env) e2
+                end
+          | constraintsyntax.APair (e1, e2, _, _, _) => NONE
+
+    
     
     (* convert a annotated value to its type, used for type checking and coercions *)
     fun ann_value_to_type (v: ann_value) : types.typ =

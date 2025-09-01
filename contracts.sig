@@ -19,6 +19,6 @@ sig
 
     (* the main function that handles any Dynamic type error, giving a reason for the error
        this function also proves that some instruction is the origin of the error and reports it *)
-    val handle_dyn_type_error : int * constraintsyntax.ann_exp * eval_ann.ann_env * constraintsyntax.constraint list * exn list -> types.typ
+    val handle_dyn_type_error : int * constraintsyntax.ann_exp * eval_ann.ann_env * int -> unit
 
 end
