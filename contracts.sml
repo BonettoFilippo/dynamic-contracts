@@ -261,6 +261,51 @@ structure contracts : CONTRACTS = struct
                         else
                             count_flows (e2, aliases, fault_idx, env)
                     end
+
+    fun test_witness (t: types.typ, e: constraintsyntax.ann_exp) : constraintsyntax.ann_exp =
+        case t of
+            types.TInt => constraintsyntax.AInt (0, URef.uref (types.TInt, []), URef.uref (types.TInt, []), 0)
+          | types.TBool => constraintsyntax.ABool (true, URef.uref (types.TBool, []), URef.uref (types.TBool, []), 0)
+          | types.TDyn => constraintsyntax.AInt (0, URef.uref (types.TInt, []), URef.uref (types.TInt, []), 0)
+          | types.TFun (t1, t2) => 
+                constraintsyntax.ALam (
+                    "temp_value", 
+                    constraintsyntax.ALet (
+                        "temp_value2", 
+                        constraintsyntax.AApp (
+                            e, 
+                            constraintsyntax.AVar (
+                                "temp_value", 
+                                URef.uref (types.TDyn, []), URef.uref (types.TDyn, []), 0),
+                            URef.uref (types.TDyn, []), URef.uref (types.TDyn, []), 0),
+                        constraintsyntax.ALet (
+                            "temp_value3", 
+                            constraintsyntax.ALam (
+                                "temp_value4", 
+                                constraintsyntax.AVar (
+                                    "temp_value4", 
+                                    URef.uref (types.TDyn, []), URef.uref (types.TDyn, []), 0),
+                                URef.uref (types.TDyn, []), URef.uref (types.TDyn, []), 0),
+                            constraintsyntax.AApp (
+                                constraintsyntax.AVar (
+                                    "temp_value3", 
+                                    URef.uref (types.TDyn, []), URef.uref (types.TDyn, []), 0),
+                                constraintsyntax.AVar (
+                                    "temp_value3", 
+                                    URef.uref (types.TDyn, []), URef.uref (types.TDyn, []), 0), 
+                                URef.uref (types.TDyn, []), URef.uref (types.TDyn, []), 0),
+                            URef.uref (types.TDyn, []), URef.uref (types.TDyn, []), 0), 
+                        URef.uref (types.TDyn, []), URef.uref (types.TDyn, []), 0), 
+                    URef.uref (types.TDyn, []), URef.uref (types.TDyn, []), 0)
+          | types.TPair (t1, t2) => 
+                let 
+                    val e1 = test_witness (t1, e)
+                    val e2 = test_witness (t2, e)
+                in
+                    constraintsyntax.APair (e1, e2, URef.uref (types.TDyn, []), URef.uref (types.TDyn, []), 0)
+                end
+          | types.TNull => constraintsyntax.AInt (0, URef.uref (types.TInt, []), URef.uref (types.TInt, []), 0)
+
         (*
         handle_dyn_type_error:
         This function analyzes dynamic type errors that occur during evaluation of annotated expressions, 
@@ -288,20 +333,35 @@ structure contracts : CONTRACTS = struct
             val e = findexp (exp, idx)
         in 
             case e of
-                constraintsyntax.AApp (f, v, t1, t2, _) => 
+                constraintsyntax.AApp (f, e, t1, t2, _) => 
                     let
                         val f' = eval_ann.eval_ann env f
                         val (v, b) = (case f' of 
                             eval_ann.AVClosure (x, body, _) => (x, body)
                           | _ => raise eval.DynamicTypeError (idx, "Attempted to apply a non-function"))
                         val n = count_flows (b, [v], idx_e, env)
-                    in
-                        if n mod 2 = 0 then
-                            raise eval.DynamicTypeError (idx, "the blame is on the callee (function)")
-                        else
-                            raise eval.DynamicTypeError (idx, "the blame is on the caller (argument)")
-                        end
 
+                        val notatfault = if n mod 2 = 0 then e else f 
+                        val notatfault_type = get_actual_typ (notatfault, env)
+
+                        val labelatfault = if n mod 2 = 0 then "callee" else "caller"
+
+                        val witness = test_witness (notatfault_type, notatfault)
+
+                        val checkwitness = if n mod 2 = 0 then
+                            constraintsyntax.AApp (f, witness, t1, t2, 0)
+                        else
+                            (constraintsyntax.AApp (witness, f, t1, t2, 0))
+                        
+                        val _ = eval_ann.eval_ann env checkwitness handle 
+                            eval.DynamicTypeError (idx2, msg) => 
+                                raise eval.DynamicTypeError (idx, "The " ^ labelatfault ^ " Is at fault for breaking the contract. A witness is " ^ constraintsyntax.prettyp witness )
+                          | eval_ann.DynamicTypeContractError (idx2, _, _, _) => 
+                                raise eval_ann.DynamicTypeContractError (idx, env, "The " ^ labelatfault ^ " Is at fault for breaking the contract. A witness is " ^ constraintsyntax.prettyp witness, idx2)
+                          | e => raise e
+                    in
+                        ()
+                    end
                     (* the function i wrote above (get_actual_typ) ignores any errors. there is a need to check if any errors come up in the input element of the function
                         it should be fairly easy to find them as we can check the idx of the any other error in the list, and check if it is between the execution of the input and the execution of the body *)
                     (* questa sezione di codice deve:
