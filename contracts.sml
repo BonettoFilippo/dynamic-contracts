@@ -9,7 +9,7 @@ structure contracts : CONTRACTS = struct
             [] => false
           | h :: t => if h >= idx andalso h <= idx2 then true else list_in_range (t, idx, idx2)
         
-    fun get_outer_type (exp: constraintsyntax.ann_exp) : (types.typ * int list) =
+    fun get_outer_type (exp: constraintsyntax.ann_exp) : (types.typ) =
         case exp of
             constraintsyntax.AInt (_, _, tvar, _) => URef.!! tvar
           | constraintsyntax.ABool (_, _, tvar, _) => URef.!! tvar
@@ -264,9 +264,9 @@ structure contracts : CONTRACTS = struct
 
     fun test_witness (t: types.typ, e: constraintsyntax.ann_exp) : constraintsyntax.ann_exp =
         case t of
-            types.TInt => constraintsyntax.AInt (0, URef.uref (types.TInt, []), URef.uref (types.TInt, []), 0)
-          | types.TBool => constraintsyntax.ABool (true, URef.uref (types.TBool, []), URef.uref (types.TBool, []), 0)
-          | types.TDyn => constraintsyntax.AInt (0, URef.uref (types.TInt, []), URef.uref (types.TInt, []), 0)
+            types.TInt => constraintsyntax.AInt (0, URef.uref (types.TInt), URef.uref (types.TInt), 0)
+          | types.TBool => constraintsyntax.ABool (true, URef.uref (types.TBool), URef.uref (types.TBool), 0)
+          | types.TDyn => constraintsyntax.AInt (0, URef.uref (types.TInt), URef.uref (types.TInt), 0)
           | types.TFun (t1, t2) => 
                 constraintsyntax.ALam (
                     "temp_value", 
@@ -276,35 +276,35 @@ structure contracts : CONTRACTS = struct
                             e, 
                             constraintsyntax.AVar (
                                 "temp_value", 
-                                URef.uref (types.TDyn, []), URef.uref (types.TDyn, []), 0),
-                            URef.uref (types.TDyn, []), URef.uref (types.TDyn, []), 0),
+                                URef.uref (types.TDyn), URef.uref (types.TDyn), 0),
+                            URef.uref (types.TDyn), URef.uref (types.TDyn), 0),
                         constraintsyntax.ALet (
                             "temp_value3", 
                             constraintsyntax.ALam (
                                 "temp_value4", 
                                 constraintsyntax.AVar (
                                     "temp_value4", 
-                                    URef.uref (types.TDyn, []), URef.uref (types.TDyn, []), 0),
-                                URef.uref (types.TDyn, []), URef.uref (types.TDyn, []), 0),
+                                    URef.uref (types.TDyn), URef.uref (types.TDyn), 0),
+                                URef.uref (types.TDyn), URef.uref (types.TDyn), 0),
                             constraintsyntax.AApp (
                                 constraintsyntax.AVar (
                                     "temp_value3", 
-                                    URef.uref (types.TDyn, []), URef.uref (types.TDyn, []), 0),
+                                    URef.uref (types.TDyn), URef.uref (types.TDyn), 0),
                                 constraintsyntax.AVar (
                                     "temp_value3", 
-                                    URef.uref (types.TDyn, []), URef.uref (types.TDyn, []), 0), 
-                                URef.uref (types.TDyn, []), URef.uref (types.TDyn, []), 0),
-                            URef.uref (types.TDyn, []), URef.uref (types.TDyn, []), 0), 
-                        URef.uref (types.TDyn, []), URef.uref (types.TDyn, []), 0), 
-                    URef.uref (types.TDyn, []), URef.uref (types.TDyn, []), 0)
+                                    URef.uref (types.TDyn), URef.uref (types.TDyn), 0), 
+                                URef.uref (types.TDyn), URef.uref (types.TDyn), 0),
+                            URef.uref (types.TDyn), URef.uref (types.TDyn), 0), 
+                        URef.uref (types.TDyn), URef.uref (types.TDyn), 0), 
+                    URef.uref (types.TDyn), URef.uref (types.TDyn), 0)
           | types.TPair (t1, t2) => 
                 let 
                     val e1 = test_witness (t1, e)
                     val e2 = test_witness (t2, e)
                 in
-                    constraintsyntax.APair (e1, e2, URef.uref (types.TDyn, []), URef.uref (types.TDyn, []), 0)
+                    constraintsyntax.APair (e1, e2, URef.uref (types.TDyn), URef.uref (types.TDyn), 0)
                 end
-          | types.TNull => constraintsyntax.AInt (0, URef.uref (types.TInt, []), URef.uref (types.TInt, []), 0)
+          | types.TNull => constraintsyntax.AInt (0, URef.uref (types.TInt), URef.uref (types.TInt), 0)
 
         (*
         handle_dyn_type_error:

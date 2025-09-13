@@ -3,7 +3,7 @@ sig
   structure U : UREF
 
   (* Type of type‐variable references *)
-  type tvar = (types.typ * int list)  U.uref
+  type tvar = types.typ U.uref
   (* Type environment mapping identifiers to type‐variable refs *)
   type tenv = (string * tvar * tvar) list
 

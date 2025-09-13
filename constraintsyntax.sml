@@ -9,7 +9,7 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
     (* tvars are references to types. each element in the syntax tree has its own reference *)
     (* these references will be merged and combined as the program continues *)
     (* the option part is to identify refernces that are yet to be initialized from all the others *)
-    type tvar = (types.typ * int list) U.uref
+    type tvar = types.typ U.uref
 
     (* the enviroment that saves the mapping between variable names and their reference (and so their types) *)
     type tenv = (string * tvar * tvar) list
@@ -25,12 +25,12 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
 
     (* a function to create a new tvar *)
     fun fresh_tvar () : tvar =
-        U.uref (types.TNull, [])
+        U.uref types.TNull
 
     (* a function to extract the type from a tvar *)
     fun getTyp (v: tvar) : types.typ =
         case U.!! v of
-            (ty, _) => ty
+            ty => ty
 
     (* a function that defines how the union between tvars should be executed *)
     (* it has different cases:
@@ -45,62 +45,59 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
         U.unify 
             (fn (pc, qc) =>
                 case (pc, qc) of
-                    (((types.TFun (a1, b1)), n1), ((types.TFun (a2, b2)), n2)) =>
+                    ((types.TFun (a1, b1)), (types.TFun (a2, b2))) =>
                         let 
-                            val (dvart, cvart, finaln) = unifyFunPair (a1, b1, n1, a2, b2, n2, "functions")
+                            val (dvart, cvart) = unifyFunPair (a1, b1, a2, b2, "functions")
                         in
-                            ((types.TFun (dvart, cvart)), finaln)
+                            (types.TFun (dvart, cvart))
                         end
-                  | (((types.TPair (a1, b1)), n1), ((types.TPair (a2, b2)), n2)) =>
+                  | ((types.TPair (a1, b1)), (types.TPair (a2, b2))) =>
                         let 
-                            val (lvart, rvart, finaln) = unifyFunPair (a1, b1, n1, a2, b2, n2, "Pairs")
+                            val (lvart, rvart) = unifyFunPair (a1, b1, a2, b2, "Pairs")
                         in
-                            ((types.TPair (lvart, rvart)), finaln)
+                            (types.TPair (lvart, rvart))
                         end
-                  | ((types.TNull, _), (types.TNull, _)) => (types.TNull, [])
-                  | ((types.TNull, _), (q, n)) => (q, n)
-                  | ((p, n), (types.TNull, _)) => (p, n)
-                  | ((x, n1), (y, n2)) => 
+                  | (types.TNull, types.TNull) => types.TNull
+                  | (types.TNull, q) => q
+                  | (p, types.TNull) => p
+                  | (x, y) => 
                         let 
                             val t = (
                                 if x = y 
                                     then x
                                     else types.TDyn)
-                            val n = n1 @ n2
                         in
-                            (t, n)
+                            t
                         end)
             (p, q)
 
     (* a helper function to handle functions and Pairs whend executing the unify *)
-    and unifyFunPair (a1: types.typ, b1: types.typ, n1: int list, a2: types.typ, b2: types.typ, n2: int list, text: string) : types.typ * types.typ * int list =
+    and unifyFunPair (a1: types.typ, b1: types.typ, a2: types.typ, b2: types.typ, text: string) : types.typ * types.typ =
         let 
             val lvar = fresh_tvar ()
             val rvar = fresh_tvar ()
 
-            val _ = unifyEq (lvar, U.uref (a1, []))
-            val _ = unifyEq (rvar, U.uref (b1, []))
-            val _ = unifyEq (lvar, U.uref (a2, []))
-            val _ = unifyEq (rvar, U.uref (b2, []))
-
-            val finaln = n1 @ n2
+            val _ = unifyEq (lvar, U.uref a1)
+            val _ = unifyEq (rvar, U.uref b1)
+            val _ = unifyEq (lvar, U.uref a2)
+            val _ = unifyEq (rvar, U.uref b2)
             
-            val (lvart, _) = U.!! lvar
-            val (rvart, _) = U.!! rvar
+            val lvart = U.!! lvar
+            val rvart = U.!! rvar
         in
-            (lvart, rvart, finaln)
+            (lvart, rvart)
         end
 
     (* records a coercion into the worklist. if the coercion goes from a type to NONE, a new uref for the next element is generated*)
     fun add_coerce (p: tvar, q: tvar) = 
         case U.!! q of
-            (types.TNull, _) => 
+            types.TNull => 
                 let 
                     val _ = unifyEq (q, U.uref (U.!! p))
                 in 
                     worklist := Coerce (p, q) :: !worklist
                 end
-          | (x, _) => worklist := Coerce (p, q) :: !worklist
+          | x => worklist := Coerce (p, q) :: !worklist
 
     (* expressions with annotated inner and outer types *)
     datatype ann_exp = 
@@ -134,16 +131,16 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
     fun infer (e: expressions.exp, tenv: tenv) : ann_exp * tvar * tvar =
         case e of
             expressions.EInt n => 
-                let val t = U.uref (types.TInt, [!expr_counter])
-                    val t1 = U.uref (types.TInt, [!expr_counter])
+                let val t = U.uref (types.TInt)
+                    val t1 = U.uref (types.TInt)
 
                     val _ = add_coerce (t, t1)
 
                     val _ = expr_counter := !expr_counter + 1
                 in (AInt (n, t, t1, !expr_counter - 1), t, t1) end
           | expressions.EBool b => 
-                let val t = U.uref (types.TBool, [!expr_counter])
-                    val t1 = U.uref (types.TBool, [!expr_counter])
+                let val t = U.uref (types.TBool)
+                    val t1 = U.uref (types.TBool)
 
                     val _ = add_coerce (t, t1)
 
@@ -166,7 +163,7 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
 
                     val (e1', inner_e1, outer_e1) = infer (e1, tenv)
 
-                    val _ = unifyEq (a, U.uref (types.TInt, []))
+                    val _ = unifyEq (a, U.uref (types.TInt))
 
                     val _ = add_coerce (a, b)
 
@@ -184,7 +181,7 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
 
                     val (e1', inner_e1, outer_e1) = infer (e1, tenv)
 
-                    val _ = unifyEq (a, U.uref (types.TBool, []))
+                    val _ = unifyEq (a, U.uref (types.TBool))
                     
                     val _ = add_coerce (a, b)
 
@@ -199,14 +196,14 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                     val e = !expr_counter
                     val _ = expr_counter := !expr_counter + 1 
                     
-                    val in_type = U.uref (types.TDyn, [e])
-                    val out_type = U.uref (types.TDyn, [e])
+                    val in_type = U.uref (types.TDyn)
+                    val out_type = U.uref (types.TDyn)
 
                     val tenv' = (v, in_type, out_type) :: tenv
 
                     val (body', inner_body, outer_body) = infer (body, tenv')
 
-                    val _ = unifyEq (a, U.uref ((types.TFun (getTyp out_type, getTyp outer_body)), []))
+                    val _ = unifyEq (a, U.uref (types.TFun (getTyp out_type, getTyp outer_body)))
 
                     val _ = add_coerce (a, b)
                 in 
@@ -222,7 +219,7 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                     val (f', inner_f, outer_f) = infer (e1, tenv)
                     val (arg', inner_arg, outer_arg) = infer (e2, tenv)
 
-                    val _ = unifyEq (U.uref ((types.TFun (getTyp outer_arg, getTyp a)), []), outer_f)
+                    val _ = unifyEq (U.uref (types.TFun (getTyp outer_arg, getTyp a)), outer_f)
 
                     val _ = add_coerce (a, b)
                 in 
@@ -260,7 +257,7 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                     val _ = expr_counter := !expr_counter + 1
 
                     val (cond', inner_cond, outer_cond) = infer (cond, tenv)
-                    val _ = unifyEq (outer_cond, U.uref (types.TBool, []))
+                    val _ = unifyEq (outer_cond, U.uref (types.TBool))
 
                     val (e_then', inner_then, outer_then) = infer (e_then, tenv)
                     val (e_else', inner_else, outer_else) = infer (e_else, tenv)
@@ -282,7 +279,7 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
                     val (e1', inner_e1, outer_e1) = infer (e1, tenv)
                     val (e2', inner_e2, outer_e2) = infer (e2, tenv)
 
-                    val _ = unifyEq (a, U.uref ((types.TPair (getTyp outer_e1, getTyp outer_e2)), []))      
+                    val _ = unifyEq (a, U.uref (types.TPair (getTyp outer_e1, getTyp outer_e2)))      
 
                     val _ = add_coerce (a, b)
                 in
@@ -304,9 +301,9 @@ structure constraintsyntax : CONSTRAINTSYNTAX = struct
     (* a function to convert a tvar to a string representation *)
     fun tvar_to_string (v: tvar) : string =
         let
-            val (ty_opt, i) = U.!! v
+            val ty_opt = U.!! v
         in
-            types.typ_to_string ty_opt ^ " #[" ^ print_list i ^ "]"
+            types.typ_to_string ty_opt 
         end
     
     (* pretty printing function for annotated expressions *)
